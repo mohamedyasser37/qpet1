@@ -1,12 +1,16 @@
 import 'dart:io';
+import 'package:cloudinary_public/cloudinary_public.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase/supabase.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vet/main.dart';
+import 'profile_edit_view.dart';
+
+import 'login_view.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -25,11 +29,15 @@ class _SettingsViewState extends State<SettingsView> {
     Colors.brown,
   ];
 
+  Map<String, dynamic>? userData;
   String? userRole;
   String? userName;
   String? userEmail;
   String? profileImageUrl;
   bool isUploading = false;
+
+  // إعدادات Cloudinary - يجب استبدال هذه القيم ببيانات حسابك
+  final cloudinary = CloudinaryPublic('dpgb9n7y1', 'qpet-app', cache: false);
 
   @override
   void initState() {
@@ -43,10 +51,11 @@ class _SettingsViewState extends State<SettingsView> {
       final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (mounted) {
         setState(() {
+          userData = doc.data();
           userEmail = user.email;
-          userRole = doc.data()?['role'];
-          userName = doc.data()?['name'] ?? user.email?.split('@').first;
-          profileImageUrl = doc.data()?['profileImage'];
+          userRole = userData?['role'];
+          userName = userData?['name'] ?? user.email?.split('@').first;
+          profileImageUrl = userData?['profileImage'];
         });
       }
     }
@@ -62,25 +71,24 @@ class _SettingsViewState extends State<SettingsView> {
         final user = FirebaseAuth.instance.currentUser;
         if (user == null) return;
         
-        final fileName = 'profile_${user.uid}.jpg';
-        final file = File(image.path);
-
-        // استخدام المتغير العالمي من main.dart
-        await supabase.storage.from('images').upload(
-          fileName, 
-          file,
-          fileOptions: const FileOptions(upsert: true),
+        // رفع الصورة على Cloudinary
+        final response = await cloudinary.uploadFile(
+          CloudinaryFile.fromFile(image.path, 
+            resourceType: CloudinaryResourceType.Image,
+            folder: 'profile_pictures'
+          ),
         );
 
-        final url = "${supabase.storage.from('images').getPublicUrl(fileName)}?v=${DateTime.now().millisecondsSinceEpoch}";
+        final url = response.secureUrl;
 
+        // تحديث الرابط في فيربيز
         await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
           'profileImage': url,
         });
 
         if (mounted) {
+          _fetchUserData();
           setState(() {
-            profileImageUrl = url;
             isUploading = false;
           });
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تحديث الصورة الشخصية')));
@@ -89,23 +97,29 @@ class _SettingsViewState extends State<SettingsView> {
     } catch (e) {
       if (mounted) {
         setState(() => isUploading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('حدث خطأ أثناء الرفع: $e')));
       }
     }
   }
 
-  Future<void> _launchWhatsApp() async {
-    const phoneNumber = '+201212729878'; 
-    final url = Uri.parse('https://wa.me/$phoneNumber');
+  Future<void> _launchSocial(String platform, String? value) async {
+    if (value == null || value.isEmpty) return;
+    
+    Uri url;
+    if (platform == 'whatsapp') {
+      url = Uri.parse('https://wa.me/$value');
+    } else {
+      url = Uri.parse(value);
+    }
+
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر فتح واتساب')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تعذر فتح الرابط')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final appState = MyApp.of(context);
-    bool isAr = appState.locale.languageCode == 'ar';
+    bool isAr = MyApp.of(context).locale.languageCode == 'ar';
     Color primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
@@ -124,9 +138,9 @@ class _SettingsViewState extends State<SettingsView> {
           const SizedBox(height: 30),
 
           if (userRole == 'owner') ...[
-            _buildSectionHeader(isAr ? 'الحساب' : 'Account'),
+            _buildSectionHeader(isAr ? 'الدعم' : 'Support'),
             _buildSettingsGroup([
-              _settingsItem(isAr ? 'تواصل معنا' : 'Contact Us', Icons.chat_outlined, primaryColor, _launchWhatsApp),
+              _settingsItem(isAr ? 'تواصل مع العيادة' : 'Contact Clinic', null, primaryColor, () => _launchSocial('whatsapp', '+201212729878'), isWhatsApp: true),
             ]),
             const SizedBox(height: 25),
           ],
@@ -134,7 +148,7 @@ class _SettingsViewState extends State<SettingsView> {
           _buildSectionHeader(isAr ? 'إعدادات التطبيق' : 'App Settings'),
           _buildSettingsGroup([
             _settingsItem(isAr ? 'اللغة' : 'Language', Icons.language, primaryColor, () => _showLanguageDialog(isAr)),
-            _settingsItem(isAr ? 'المظهر (اللون)' : 'Appearance', Icons.palette_outlined, primaryColor, () => _showColorPicker(isAr, appState)),
+            _settingsItem(isAr ? 'المظهر (اللون)' : 'Appearance', Icons.palette_outlined, primaryColor, () => _showColorPicker(isAr)),
           ]),
 
           const SizedBox(height: 30),
@@ -164,10 +178,15 @@ class _SettingsViewState extends State<SettingsView> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(isAr ? 'إلغاء' : 'Cancel')),
           ElevatedButton(
-            onPressed: () { 
+            onPressed: () async { 
               Navigator.pop(context); 
-              FirebaseAuth.instance.signOut();
-              MyApp.of(context).setSelectedIndex(0); 
+              await FirebaseAuth.instance.signOut();
+              if (mounted) {
+                Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginView()),
+                  (route) => false,
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF4D6D), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             child: Text(isAr ? 'تأكيد' : 'Confirm'),
@@ -178,59 +197,100 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Widget _buildProfileCard(bool isAr, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20)],
-      ),
-      child: Row(
-        children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: color.withOpacity(0.1),
-                backgroundImage: (profileImageUrl != null && profileImageUrl!.isNotEmpty) ? NetworkImage(profileImageUrl!) : null,
-                child: (profileImageUrl == null || profileImageUrl!.isEmpty) ? Icon(Icons.person, size: 40, color: color) : null,
-              ),
-              if (isUploading)
-                const Positioned.fill(child: CircularProgressIndicator()),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: InkWell(
-                  onTap: _pickProfileImage,
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: color,
-                    child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: () {
+        if (userData != null) {
+          Navigator.push(context, MaterialPageRoute(builder: (c) => ProfileEditView(userData: userData!))).then((updated) {
+            if (updated == true) _fetchUserData();
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(30),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20)],
+        ),
+        child: Column(
+          children: [
+            Row(
               children: [
-                Text(userName ?? '---', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(userEmail ?? '---', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                const SizedBox(height: 5),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                  child: Text(
-                    userRole == 'doctor' ? (isAr ? 'طبيب' : 'Doctor') : (isAr ? 'صاحب أليف' : 'Owner'),
-                    style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: color.withOpacity(0.1),
+                      backgroundImage: (profileImageUrl != null && profileImageUrl!.isNotEmpty) ? NetworkImage(profileImageUrl!) : null,
+                      child: (profileImageUrl == null || profileImageUrl!.isEmpty) ? Icon(Icons.person, size: 40, color: color) : null,
+                    ),
+                    if (isUploading)
+                      const Positioned.fill(child: CircularProgressIndicator()),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: InkWell(
+                        onTap: _pickProfileImage,
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: color,
+                          child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(userName ?? '---', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(userEmail ?? '---', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                      const SizedBox(height: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                        child: Text(
+                          userRole == 'doctor' ? (isAr ? 'طبيب' : 'Doctor') : (isAr ? 'صاحب أليف' : 'Owner'),
+                          style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                Icon(Icons.edit_outlined, color: Colors.grey.shade400),
               ],
             ),
-          ),
-        ],
+            if (userData != null && (userData?['facebook'] != null || userData?['telegram'] != null || userData?['whatsapp'] != null)) ...[
+              const Divider(height: 30),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (userData?['facebook'] != null && userData!['facebook'].toString().isNotEmpty)
+                    _socialIcon(Icons.facebook, Colors.blue, () => _launchSocial('facebook', userData!['facebook'])),
+                  if (userData?['telegram'] != null && userData!['telegram'].toString().isNotEmpty)
+                    _socialIcon(Icons.telegram, Colors.lightBlue, () => _launchSocial('telegram', userData!['telegram'])),
+                  if (userData?['whatsapp'] != null && userData!['whatsapp'].toString().isNotEmpty)
+                    _socialIcon(null, Colors.green, () => _launchSocial('whatsapp', userData!['whatsapp']), isWhatsApp: true),
+                ],
+              )
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _socialIcon(IconData? icon, Color color, VoidCallback onTap, {bool isWhatsApp = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: IconButton(
+        icon: isWhatsApp 
+          ? SvgPicture.asset('assets/WhatsApp.svg', width: 28, height: 28)
+          : Icon(icon, color: color, size: 28),
+        onPressed: onTap,
       ),
     );
   }
@@ -249,7 +309,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  Widget _settingsItem(String title, IconData icon, Color color, VoidCallback onTap) {
+  Widget _settingsItem(String title, IconData? icon, Color color, VoidCallback onTap, {bool isWhatsApp = false}) {
     return ListTile(
       onTap: onTap,
       leading: Icon(Icons.arrow_back_ios_new, size: 14, color: Colors.grey.shade400),
@@ -258,7 +318,9 @@ class _SettingsViewState extends State<SettingsView> {
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
           const SizedBox(width: 15),
-          Icon(icon, color: Colors.black87, size: 22),
+          isWhatsApp 
+            ? SvgPicture.asset('assets/WhatsApp.svg', width: 22, height: 22)
+            : Icon(icon, color: Colors.black87, size: 22),
         ],
       ),
     );
@@ -282,7 +344,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  void _showColorPicker(bool isAr, dynamic appState) {
+  void _showColorPicker(bool isAr) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),

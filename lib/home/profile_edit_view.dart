@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:vet/main.dart';
 
 class ProfileEditView extends StatefulWidget {
@@ -91,7 +92,7 @@ class _ProfileEditViewState extends State<ProfileEditView> {
               const SizedBox(height: 15),
               _buildSocialField(_tgController, 'Telegram', 'https://t.me/username', Icons.telegram, Colors.lightBlue),
               const SizedBox(height: 15),
-              _buildSocialField(_waController, 'WhatsApp', '0123456789', Icons.phone, Colors.green),
+              _buildSocialField(_waController, 'WhatsApp', '0123456789', null, Colors.green, isWhatsApp: true),
               
               const SizedBox(height: 40),
               ElevatedButton(
@@ -130,13 +131,18 @@ class _ProfileEditViewState extends State<ProfileEditView> {
     );
   }
 
-  Widget _buildSocialField(TextEditingController controller, String label, String hint, IconData icon, Color color) {
+  Widget _buildSocialField(TextEditingController controller, String label, String hint, IconData? icon, Color color, {bool isWhatsApp = false}) {
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: color),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: isWhatsApp 
+            ? SvgPicture.asset('assets/WhatsApp.svg', width: 20, height: 20)
+            : Icon(icon, color: color),
+        ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );

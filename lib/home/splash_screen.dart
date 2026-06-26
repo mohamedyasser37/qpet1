@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vet/home/home_screen.dart';
 import 'package:vet/home/login_view.dart';
+import 'package:vet/home/onboarding_view.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -32,9 +34,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;
 
-    // التحقق من حالة التسجيل بعد انتهاء الوقت
+    final prefs = await SharedPreferences.getInstance();
+    bool onboardingDone = prefs.getBool('onboarding_done') ?? false;
+
+    Widget nextScreen;
     User? user = FirebaseAuth.instance.currentUser;
-    Widget nextScreen = user != null ? const HomeScreen() : const LoginView();
+
+    if (!onboardingDone) {
+      nextScreen = const OnboardingView();
+    } else {
+      nextScreen = user != null ? const HomeScreen() : const LoginView();
+    }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => nextScreen),

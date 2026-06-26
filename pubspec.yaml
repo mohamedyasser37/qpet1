@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   mobile_scanner: ^5.2.3
   qr_flutter: ^4.1.0
   share_plus: ^10.1.0
@@ -21,8 +23,12 @@ dependencies:
   firebase_auth: ^5.4.1
   image_picker: ^1.1.2
   supabase: ^2.3.4
+  cloudinary_public: ^0.23.1
   url_launcher: ^6.3.1
+  pdf: ^3.11.1
+  printing: ^5.13.2
   cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
@@ -38,3 +44,5 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/

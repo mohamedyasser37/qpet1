@@ -17,7 +17,7 @@ class QrScannerView extends StatefulWidget {
 
 class _QrScannerViewState extends State<QrScannerView> with WidgetsBindingObserver {
   MobileScannerController controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal, 
+    detectionSpeed: DetectionSpeed.noDuplicates, 
     autoStart: false,
     formats: [BarcodeFormat.qrCode],
   );
@@ -80,20 +80,70 @@ class _QrScannerViewState extends State<QrScannerView> with WidgetsBindingObserv
       final doc = await FirebaseFirestore.instance.collection('pets').doc(petId).get();
       if (doc.exists) {
         final data = doc.data() as Map<String, dynamic>;
+        
+        // التحقق من دور المستخدم قبل عرض البيانات (خاص بالدكتور)
+        final currentUser = FirebaseAuth.instance.currentUser;
+        String? role;
+        if (currentUser != null) {
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
+          role = userDoc.data()?['role'];
+        }
+
+        if (mounted && role == 'doctor') {
+          bool isAr = MyApp.of(context).locale.languageCode == 'ar';
+          bool proceed = await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (c) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              title: Text(isAr ? 'تم التعرف على أليف' : 'Pet Recognized'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.green, size: 50),
+                  const SizedBox(height: 15),
+                  Text('${isAr ? 'الاسم:' : 'Name:'} ${data['animalName']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  Text('ID: $petId', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c, false),
+                  child: Text(isAr ? 'إغلاق' : 'Close', style: const TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(c, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white),
+                  child: Text(isAr ? 'فتح السجل' : 'Open Record'),
+                ),
+              ],
+            ),
+          ) ?? false;
+
+          if (!proceed) {
+            setState(() => isProcessing = false);
+            controller.start();
+            return;
+          }
+        }
+
         if (mounted) {
-          setState(() => isProcessing = false);
           _showResultSheet(petId, data);
         }
       } else {
-        setState(() => isProcessing = false);
-        bool isAr = MyApp.of(context).locale.languageCode == 'ar';
-        _showErrorDialog(isAr ? 'عذراً، هذا الرمز غير مسجل لدينا.' : 'Sorry, this code is not registered.');
-        controller.start();
+        if (mounted) {
+          setState(() => isProcessing = false);
+          bool isAr = MyApp.of(context).locale.languageCode == 'ar';
+          _showErrorDialog(isAr ? 'عذراً، هذا الرمز غير مسجل لدينا.' : 'Sorry, this code is not registered.');
+          controller.start();
+        }
       }
     } catch (e) {
-      setState(() => isProcessing = false);
-      _showErrorDialog('Error: $e');
-      controller.start();
+      if (mounted) {
+        setState(() => isProcessing = false);
+        _showErrorDialog('Error: $e');
+        controller.start();
+      }
     }
   }
 
@@ -139,7 +189,16 @@ class _QrScannerViewState extends State<QrScannerView> with WidgetsBindingObserv
                 if (currentUser != null)
                   IconButton(
                     icon: const Icon(Icons.edit, color: Colors.orange),
-                    onPressed: () => _verifyPassword(petId, data, true), // true يعني تعديل
+                    onPressed: () {
+                      if (role == 'doctor' || alreadyLinked) {
+                        Navigator.pop(context); // غلق الشيت
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => EditPetView(petId: petId, initialData: data))).then((value) {
+                          if (value == true && mounted) Navigator.pop(context); // الخروج من الماسح
+                        });
+                      } else {
+                        _verifyPassword(petId, data, true); // طلب الباسورد للمستخدم العادي (إذا لم يكن أليفه)
+                      }
+                    },
                   ),
               ],
             ),
@@ -178,7 +237,12 @@ class _QrScannerViewState extends State<QrScannerView> with WidgetsBindingObserv
           ],
         ),
       ),
-    ).then((_) { if (isPermissionGranted && !isProcessing) controller.start(); });
+    ).then((_) { 
+      if (mounted) {
+        // بعد إغلاق صفحة البيانات، نخرج من الماسح ونعود للرئيسية
+        Navigator.pop(context);
+      }
+    });
   }
 
   void _verifyPassword(String petId, Map<String, dynamic> data, bool forEdit) {
@@ -211,11 +275,17 @@ class _QrScannerViewState extends State<QrScannerView> with WidgetsBindingObserv
                 Navigator.pop(c); // غلق الديالوج
                 if (forEdit) {
                   Navigator.pop(context); // غلق الشيت
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => EditPetView(petId: petId, initialData: data)));
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => EditPetView(petId: petId, initialData: data))).then((value) {
+                    if (value == true && mounted) {
+                      Navigator.pop(context); // الخروج من شاشة الماسح والعودة للرئيسية
+                    }
+                  });
                 } else {
                   // عملية الإضافة لقائمة "أليفي"
                   final user = FirebaseAuth.instance.currentUser;
                   await FirebaseFirestore.instance.collection('users').doc(user!.uid).update({'petId': petId});
+                  // تحديث صاحب الحيوان في وثيقة الحيوان نفسه لربط السوشيال ميديا
+                  await FirebaseFirestore.instance.collection('pets').doc(petId).update({'ownerUid': user.uid});
                   
                   if (mounted) {
                     Navigator.pop(context); // غلق الشيت (Bottom Sheet)

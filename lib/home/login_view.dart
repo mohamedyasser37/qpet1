@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vet/home/qr_scanner_view.dart';
+import 'package:vet/home/home_screen.dart';
 import 'package:vet/main.dart';
 
 class LoginView extends StatefulWidget {
@@ -14,12 +15,13 @@ class LoginView extends StatefulWidget {
 class _LoginViewState extends State<LoginView> {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
-  final _nameController = TextEditingController(); // المتحكم الجديد للاسم
+  final _nameController = TextEditingController(); 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool isLoading = false;
   bool isLogin = true;
+  bool _obscurePassword = true;
   String selectedRole = 'owner';
 
   Future<void> _submit(bool isAr) async {
@@ -36,7 +38,6 @@ class _LoginViewState extends State<LoginView> {
           email: _emailController.text.trim(), 
           password: _passwordController.text.trim()
         );
-        // حفظ الاسم والدور في Firestore
         await _firestore.collection('users').doc(userCredential.user!.uid).set({
           'name': _nameController.text.trim(),
           'email': _emailController.text.trim(), 
@@ -44,8 +45,18 @@ class _LoginViewState extends State<LoginView> {
           'createdAt': FieldValue.serverTimestamp()
         });
       }
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (c) => const HomeScreen()),
+          (route) => false,
+        );
+      }
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? (isAr ? 'خطأ' : 'Error'))));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? (isAr ? 'خطأ' : 'Error'))));
+      }
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -76,12 +87,6 @@ class _LoginViewState extends State<LoginView> {
                       Text(isLogin ? (isAr ? 'تسجيل الدخول' : 'Login') : (isAr ? 'إنشاء حساب' : 'Sign Up'), style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor)),
                       const SizedBox(height: 32),
                       if (!isLogin) ...[
-                        Text(isAr ? 'اختر نوع الحساب:' : 'Select account type:', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Row(children: [
-                          Expanded(child: RadioListTile<String>(title: Text(isAr ? 'صاحب أليف' : 'Owner', style: const TextStyle(fontSize: 10)), value: 'owner', groupValue: selectedRole, onChanged: (v) => setState(() => selectedRole = v!))),
-                          Expanded(child: RadioListTile<String>(title: Text(isAr ? 'طبيب' : 'Doctor', style: const TextStyle(fontSize: 10)), value: 'doctor', groupValue: selectedRole, onChanged: (v) => setState(() => selectedRole = v!))),
-                        ]),
-                        const SizedBox(height: 16),
                         TextFormField(
                           controller: _nameController, 
                           decoration: InputDecoration(
@@ -105,10 +110,17 @@ class _LoginViewState extends State<LoginView> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _passwordController, 
-                        obscureText: true, 
+                        obscureText: _obscurePassword, 
                         decoration: InputDecoration(
                           labelText: isAr ? 'كلمة المرور' : 'Password', 
                           prefixIcon: Icon(Icons.lock, color: primaryColor),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         validator: (v) => v!.length < 6 ? (isAr ? 'كلمة المرور قصيرة' : 'Password too short') : null,

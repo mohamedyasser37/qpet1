@@ -4,15 +4,36 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vet/home/add_product_view.dart';
 import 'package:vet/main.dart';
 
+// إدارة السلة
+class CartItem {
+  final Product product;
+  int quantity;
+  String? selectedColor;
+  CartItem({required this.product, this.quantity = 1, this.selectedColor});
+}
+
+List<CartItem> cartItems = [];
+
 class Product {
   final String id;
   final String name;
   final String description;
   final double price;
+  final double shippingPrice;
   final String imageUrl;
   final String category;
+  final List<String> colors;
 
-  Product({required this.id, required this.name, required this.description, required this.price, required this.imageUrl, required this.category});
+  Product({
+    required this.id, 
+    required this.name, 
+    required this.description, 
+    required this.price, 
+    required this.shippingPrice,
+    required this.imageUrl, 
+    required this.category,
+    this.colors = const [],
+  });
 
   factory Product.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map;
@@ -21,8 +42,10 @@ class Product {
       name: data['name'] ?? '',
       description: data['description'] ?? '',
       price: (data['price'] ?? 0).toDouble(),
-      imageUrl: data['imageUrl'] ?? 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=1000',
+      shippingPrice: (data['shippingPrice'] ?? 0).toDouble(),
+      imageUrl: data['imageUrl'] ?? '',
       category: data['category'] ?? 'عام',
+      colors: data['colors'] != null ? List<String>.from(data['colors']) : [],
     );
   }
 }
@@ -47,7 +70,7 @@ class _ProductsViewState extends State<ProductsView> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      setState(() => userRole = doc.data()?['role']);
+      if (mounted) setState(() => userRole = doc.data()?['role']);
     }
   }
 
@@ -62,6 +85,24 @@ class _ProductsViewState extends State<ProductsView> {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         centerTitle: true,
+        actions: [
+          Stack(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const CartView())).then((_) => setState(() {})),
+                icon: const Icon(Icons.shopping_cart_outlined),
+              ),
+              if (cartItems.isNotEmpty)
+                Positioned(
+                  right: 8, top: 8,
+                  child: CircleAvatar(
+                    radius: 8, backgroundColor: Colors.red,
+                    child: Text('${cartItems.length}', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                  ),
+                )
+            ],
+          )
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('products').orderBy('createdAt', descending: true).snapshots(),
@@ -75,7 +116,7 @@ class _ProductsViewState extends State<ProductsView> {
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.65,
+              childAspectRatio: 0.58,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
@@ -87,23 +128,12 @@ class _ProductsViewState extends State<ProductsView> {
     );
   }
 
-  String _translateCat(String category, bool isAr) {
-    Map<String, String> m = {
-      'طعام': 'Food',
-      'إكسسوارات': 'Accessories',
-      'أسرة': 'Beds',
-      'ألعاب': 'Toys',
-      'أدوية': 'Medicine'
-    };
-    if (isAr) return category;
-    return m[category] ?? category;
-  }
-
   Widget _buildProductCard(BuildContext context, Product product, bool isAr, Color primaryColor) {
+    bool isInCart = cartItems.any((item) => item.product.id == product.id);
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
+        color: Colors.white, borderRadius: BorderRadius.circular(25),
         boxShadow: [BoxShadow(color: primaryColor.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
         border: Border.all(color: primaryColor.withOpacity(0.05)),
       ),
@@ -115,19 +145,13 @@ class _ProductsViewState extends State<ProductsView> {
             Expanded(
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: Image.network(
-                      product.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => Center(child: Icon(Icons.broken_image, color: primaryColor)),
-                    ),
-                  ),
+                  Positioned.fill(child: Image.network(product.imageUrl, fit: BoxFit.cover, errorBuilder: (c, e, s) => Center(child: Icon(Icons.broken_image, color: primaryColor)))),
                   Positioned(
                     top: 10, left: 10,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(color: primaryColor, borderRadius: BorderRadius.circular(10)),
-                      child: Text(_translateCat(product.category, isAr), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      child: Text(product.category, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   if (userRole == 'doctor')
@@ -153,23 +177,38 @@ class _ProductsViewState extends State<ProductsView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('${product.price}', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 18)),
-                      Text(isAr ? 'ج.م' : 'EGP', style: TextStyle(color: primaryColor, fontSize: 12)),
-                    ],
-                  ),
+                  Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 5),
+                  Text('${product.price} ${isAr ? 'ج.م' : 'EGP'}', style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ProductDetailView(product: product))),
-                      style: ElevatedButton.styleFrom(backgroundColor: primaryColor.withOpacity(0.1), foregroundColor: primaryColor, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                      child: Text(isAr ? 'التفاصيل' : 'Details', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (userRole == 'owner')
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          if (isInCart) {
+                            cartItems.removeWhere((item) => item.product.id == product.id);
+                          } else {
+                            cartItems.add(CartItem(product: product));
+                          }
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isInCart ? Colors.grey : primaryColor, 
+                        foregroundColor: Colors.white, 
+                        minimumSize: const Size(double.infinity, 35), 
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                      ),
+                      child: Text(
+                        isInCart 
+                          ? (isAr ? 'تمت الإضافة' : 'Added')
+                          : (isAr ? 'أضف للسلة' : 'Add to Cart'), 
+                        style: const TextStyle(fontSize: 12)
+                      ),
                     ),
+                  TextButton(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => ProductDetailView(product: product))).then((_) => setState(() {})),
+                    style: TextButton.styleFrom(minimumSize: const Size(double.infinity, 30)),
+                    child: Text(isAr ? 'التفاصيل' : 'Details', style: const TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
@@ -204,146 +243,377 @@ class ProductDetailView extends StatefulWidget {
 }
 
 class _ProductDetailViewState extends State<ProductDetailView> {
-  final _phoneController = TextEditingController();
-  final _nameController = TextEditingController();
-  bool isOrdering = false;
   String? _userRole;
+  String? _selectedColor;
+
+  final Map<String, Color> colorMap = {
+    'أسود': Colors.black, 'Black': Colors.black,
+    'أبيض': Colors.white, 'White': Colors.white,
+    'أحمر': Colors.red, 'Red': Colors.red,
+    'أزرق': Colors.blue, 'Blue': Colors.blue,
+    'أخضر': Colors.green, 'Green': Colors.green,
+    'أصفر': Colors.yellow, 'Yellow': Colors.yellow,
+    'بني': Colors.brown, 'Brown': Colors.brown,
+    'رمادي': Colors.grey, 'Grey': Colors.grey,
+    'وردي': Colors.pink, 'Pink': Colors.pink,
+    'بنفسجي': Colors.purple, 'Purple': Colors.purple,
+    'برتقالي': Colors.orange, 'Orange': Colors.orange,
+  };
 
   @override
   void initState() {
     super.initState();
     _fetchUserRole();
+    if (widget.product.colors.isNotEmpty) {
+      _selectedColor = widget.product.colors.first;
+    }
   }
 
   Future<void> _fetchUserRole() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (mounted) {
-        setState(() => _userRole = doc.data()?['role']);
-      }
+      if (mounted) setState(() => _userRole = doc.data()?['role']);
     }
-  }
-
-  Future<void> _placeOrder(bool isAr, Color primaryColor) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isAr ? 'يجب تسجيل الدخول' : 'Please login')));
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text(isAr ? 'إتمام الطلب' : 'Complete Order'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: _nameController, decoration: InputDecoration(labelText: isAr ? 'الاسم' : 'Name', prefixIcon: const Icon(Icons.person))),
-            const SizedBox(height: 10),
-            TextField(controller: _phoneController, keyboardType: TextInputType.phone, decoration: InputDecoration(labelText: isAr ? 'الهاتف' : 'Phone', prefixIcon: const Icon(Icons.phone))),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: Text(isAr ? 'إلغاء' : 'Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (_nameController.text.isEmpty || _phoneController.text.isEmpty) return;
-              Navigator.pop(c);
-              setState(() => isOrdering = true);
-              try {
-                await FirebaseFirestore.instance.collection('orders').add({
-                  'productId': widget.product.id, 'productName': widget.product.name, 'productPrice': widget.product.price,
-                  'userId': user.uid, 'userName': _nameController.text, 'userPhone': _phoneController.text,
-                  'status': 'pending', 'seenByOwner': true, 'createdAt': FieldValue.serverTimestamp(),
-                });
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isAr ? 'تم الإرسال بنجاح' : 'Sent successfully')));
-              } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-              } finally {
-                if (mounted) setState(() => isOrdering = false);
-              }
-            },
-            child: Text(isAr ? 'تأكيد' : 'Confirm'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _translateCat(String category, bool isAr) {
-    Map<String, String> m = {
-      'طعام': 'Food',
-      'إكسسوارات': 'Accessories',
-      'أسرة': 'Beds',
-      'ألعاب': 'Toys',
-      'أدوية': 'Medicine'
-    };
-    if (isAr) return category;
-    return m[category] ?? category;
   }
 
   @override
   Widget build(BuildContext context) {
     bool isAr = MyApp.of(context).locale.languageCode == 'ar';
     Color primaryColor = Theme.of(context).primaryColor;
+    bool isInCart = cartItems.any((item) => item.product.id == widget.product.id);
 
     return Scaffold(
-      backgroundColor: Colors.white, // توحيد لون الخلفية
+      backgroundColor: const Color(0xFFF8F9FB),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 400, 
             pinned: true, 
-            backgroundColor: primaryColor, 
+            backgroundColor: primaryColor,
             flexibleSpace: FlexibleSpaceBar(
-              background: Image.network(widget.product.imageUrl, fit: BoxFit.cover)
-            )
+              background: Hero(tag: widget.product.id, child: Image.network(widget.product.imageUrl, fit: BoxFit.cover)),
+            ),
           ),
           SliverToBoxAdapter(
             child: Container(
               padding: const EdgeInsets.all(24),
-              color: Colors.white, // ضمان أن لون الحاوية أبيض
+              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Chip(label: Text(_translateCat(widget.product.category, isAr)), backgroundColor: primaryColor.withOpacity(0.1)),
-                    Text('${widget.product.price} ${isAr ? 'ج.م' : 'EGP'}', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor)),
-                  ]),
-                  const SizedBox(height: 25),
-                  Text(widget.product.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                        child: Text(widget.product.category, style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+                      ),
+                      Text('${widget.product.price} ${isAr ? 'ج.م' : 'EGP'}', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: primaryColor)),
+                    ],
+                  ),
                   const SizedBox(height: 20),
-                  Text(isAr ? 'الوصف' : 'Description', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(widget.product.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+                  const SizedBox(height: 15),
+                  
+                  if (widget.product.colors.isNotEmpty) ...[
+                    Text(isAr ? 'الألوان المتاحة' : 'Available Colors', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 55,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: widget.product.colors.length,
+                        itemBuilder: (context, index) {
+                          String colorName = widget.product.colors[index];
+                          bool isSelected = _selectedColor == colorName;
+                          Color displayColor = colorMap[colorName] ?? Colors.transparent;
+
+                          return GestureDetector(
+                            onTap: () => setState(() => _selectedColor = colorName),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              margin: const EdgeInsets.only(right: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: isSelected ? primaryColor.withOpacity(0.1) : Colors.white,
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(color: isSelected ? primaryColor : Colors.grey.shade300, width: 2),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 18, height: 18,
+                                    decoration: BoxDecoration(
+                                      color: displayColor, shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.grey.shade400, width: 0.5)
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(colorName, style: TextStyle(color: Colors.black87, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                  ],
+
+                  Text(isAr ? 'وصف المنتج' : 'Product Description', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  Text(widget.product.description, style: TextStyle(fontSize: 16, color: Colors.grey.shade700, height: 1.6)),
-                  // مساحة إضافية في الأسفل فقط للمستخدم العادي لكي لا يغطي الزر على النص
-                  SizedBox(height: _userRole == 'owner' ? 120 : 40), 
+                  Text(widget.product.description, style: TextStyle(fontSize: 16, color: Colors.grey.shade600, height: 1.6)),
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
           ),
         ],
       ),
-      // لا نعرض الـ bottomSheet (الذي قد يترك مساحة لونية) إلا للمستخدم العادي
       bottomSheet: _userRole == 'owner' 
         ? Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white, 
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))]
-            ),
+            decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))]),
             child: SizedBox(
               width: double.infinity, height: 55,
               child: ElevatedButton.icon(
-                onPressed: isOrdering ? null : () => _placeOrder(isAr, primaryColor),
-                icon: isOrdering ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.shopping_bag_outlined),
-                label: Text(isOrdering ? (isAr ? 'جاري الطلب...' : 'Ordering...') : (isAr ? 'اطلب الآن' : 'Order Now'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                onPressed: () {
+                  setState(() {
+                    if (isInCart) {
+                      cartItems.removeWhere((item) => item.product.id == widget.product.id);
+                    } else {
+                      cartItems.add(CartItem(product: widget.product, selectedColor: _selectedColor));
+                    }
+                  });
+                },
+                icon: Icon(isInCart ? Icons.remove_shopping_cart : Icons.add_shopping_cart),
+                label: Text(isInCart ? (isAr ? 'حذف من السلة' : 'Remove from Cart') : (isAr ? 'أضف للسلة' : 'Add to Cart'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: isInCart ? Colors.grey : primaryColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
               ),
             ),
           )
         : null,
     );
+  }
+}
+
+class CartView extends StatefulWidget {
+  const CartView({super.key});
+
+  @override
+  State<CartView> createState() => _CartViewState();
+}
+
+class _CartViewState extends State<CartView> {
+  @override
+  Widget build(BuildContext context) {
+    bool isAr = MyApp.of(context).locale.languageCode == 'ar';
+    double totalProducts = cartItems.fold(0.0, (sum, item) => sum + (item.product.price * item.quantity));
+
+    return Scaffold(
+      appBar: AppBar(title: Text(isAr ? 'سلة المشتريات' : 'My Cart'), centerTitle: true),
+      body: cartItems.isEmpty 
+          ? const Center(child: Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey))
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: cartItems.length,
+                    itemBuilder: (c, i) => Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(cartItems[i].product.imageUrl, width: 60, height: 60, fit: BoxFit.cover)),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(cartItems[i].product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  if (cartItems[i].selectedColor != null) Text('${isAr ? 'اللون:' : 'Color:'} ${cartItems[i].selectedColor}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  Text('${cartItems[i].product.price} ج.م', style: TextStyle(color: Theme.of(context).primaryColor)),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => setState(() => cartItems[i].quantity > 1 ? cartItems[i].quantity-- : cartItems.removeAt(i))),
+                                Text('${cartItems[i].quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => setState(() => cartItems[i].quantity++)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]),
+                  child: Column(
+                    children: [
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Text(isAr ? 'المجموع:' : 'Total:', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        Text('$totalProducts ${isAr ? 'ج.م' : 'EGP'}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
+                      ]),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity, height: 55,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const CheckoutView())),
+                          style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                          child: Text(isAr ? 'الذهاب للدفع' : 'Proceed to Checkout'),
+                        ),
+                      )
+                    ],
+                  ),
+                )
+              ],
+            ),
+    );
+  }
+}
+
+class CheckoutView extends StatefulWidget {
+  const CheckoutView({super.key});
+
+  @override
+  State<CheckoutView> createState() => _CheckoutViewState();
+}
+
+class _CheckoutViewState extends State<CheckoutView> {
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  late TextEditingController _shippingController;
+  bool isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    double maxShipping = 0;
+    for (var item in cartItems) {
+      if (item.product.shippingPrice > maxShipping) maxShipping = item.product.shippingPrice;
+    }
+    _shippingController = TextEditingController(text: maxShipping.toStringAsFixed(0));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    bool isAr = MyApp.of(context).locale.languageCode == 'ar';
+    double totalProducts = cartItems.fold(0.0, (sum, item) => sum + (item.product.price * item.quantity));
+    double shipping = double.tryParse(_shippingController.text) ?? 0;
+    double finalTotal = totalProducts + shipping;
+
+    return Scaffold(
+      appBar: AppBar(title: Text(isAr ? 'إتمام الطلب' : 'Checkout'), centerTitle: true),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            _buildField(_nameController, isAr ? 'الاسم بالكامل' : 'Full Name', Icons.person),
+            const SizedBox(height: 15),
+            _buildField(_phoneController, isAr ? 'رقم الهاتف' : 'Phone Number', Icons.phone, keyboardType: TextInputType.phone),
+            const SizedBox(height: 15),
+            _buildField(_addressController, isAr ? 'العنوان بالتفصيل' : 'Detailed Address', Icons.location_on, maxLines: 3),
+            const SizedBox(height: 15),
+            _buildField(_shippingController, isAr ? 'سعر الشحن' : 'Shipping Cost', Icons.local_shipping, readOnly: true),
+            
+            const SizedBox(height: 30),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(15)),
+              child: Column(
+                children: [
+                  _summaryRow(isAr ? 'إجمالي المنتجات:' : 'Products Total:', '$totalProducts ${isAr ? 'ج.م' : 'EGP'}'),
+                  _summaryRow(isAr ? 'سعر الشحن:' : 'Shipping:', '$shipping ${isAr ? 'ج.m' : 'EGP'}'),
+                  const Divider(height: 30),
+                  _summaryRow(isAr ? 'الإجمالي النهائي:' : 'Total Amount:', '$finalTotal ${isAr ? 'ج.م' : 'EGP'}', isBold: true),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 40),
+            if (isSaving) const CircularProgressIndicator()
+            else SizedBox(
+              width: double.infinity, height: 55,
+              child: ElevatedButton(
+                onPressed: _submitOrder,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                child: Text(isAr ? 'تأكيد الطلب' : 'Confirm Order'),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, int maxLines = 1, Function(String)? onChanged, bool readOnly = false}) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      onChanged: onChanged,
+      readOnly: readOnly,
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), filled: true, fillColor: readOnly ? Colors.grey.shade100 : Colors.white),
+    );
+  }
+
+  Widget _summaryRow(String label, String value, {bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: isBold ? 18 : 14, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
+          Text(value, style: TextStyle(fontSize: isBold ? 18 : 14, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: isBold ? Theme.of(context).primaryColor : Colors.black)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _submitOrder() async {
+    bool isAr = MyApp.of(context).locale.languageCode == 'ar';
+    if (_nameController.text.isEmpty || _phoneController.text.isEmpty || _addressController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isAr ? 'يرجى ملء جميع البيانات' : 'Please fill in all fields'), backgroundColor: Colors.red));
+      return;
+    }
+    setState(() => isSaving = true);
+    
+    final user = FirebaseAuth.instance.currentUser;
+    double totalProducts = cartItems.fold(0.0, (sum, item) => sum + (item.product.price * item.quantity));
+    double shipping = double.tryParse(_shippingController.text) ?? 0;
+    
+    try {
+      await FirebaseFirestore.instance.collection('orders').add({
+        'userId': user?.uid,
+        'userName': _nameController.text,
+        'userPhone': _phoneController.text,
+        'address': _addressController.text,
+        'shippingCost': shipping,
+        'totalPrice': totalProducts + shipping,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'items': cartItems.map((e) => {'id': e.product.id, 'name': e.product.name, 'price': e.product.price, 'quantity': e.quantity, 'color': e.selectedColor}).toList(),
+      });
+      
+      cartItems.clear();
+      if (mounted) {
+        Navigator.pop(context);
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال طلبك بنجاح!'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      setState(() => isSaving = false);
+    }
   }
 }

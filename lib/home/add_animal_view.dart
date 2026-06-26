@@ -22,12 +22,10 @@ class _AddAnimalViewState extends State<AddAnimalView> {
   final _formKey = GlobalKey<FormState>();
   final _qrKey = GlobalKey();
   final _animalNameController = TextEditingController();
-  final _ownerNameController = TextEditingController();
-  final _ownerPhoneController = TextEditingController();
 
-  String selectedAnimalType = 'قطة';
   String? generatedUrl;
   String? editPassword;
+  String? currentPetId;
   bool isSaving = false;
 
   String _generateRandomPassword() {
@@ -59,14 +57,11 @@ class _AddAnimalViewState extends State<AddAnimalView> {
   Widget build(BuildContext context) {
     bool isAr = MyApp.of(context).locale.languageCode == 'ar';
     Color primaryColor = Theme.of(context).primaryColor;
-    final List<String> animalTypes = isAr 
-      ? ['قطة', 'كلب', 'طائر', 'أرنب', 'هامستر']
-      : ['Cat', 'Dog', 'Bird', 'Rabbit', 'Hamster'];
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isAr ? 'إضافة أليف جديد' : 'Add New Pet'),
-        backgroundColor: primaryColor,
+        backgroundColor: primaryColor, 
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -76,28 +71,25 @@ class _AddAnimalViewState extends State<AddAnimalView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SizedBox(height: 20),
               Icon(Icons.pets, size: 80, color: primaryColor),
               const SizedBox(height: 32),
-              _buildTextField(_animalNameController, isAr ? 'اسم الحيوان' : 'Pet Name', Icons.badge, primaryColor),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: isAr ? selectedAnimalType : _translateType(selectedAnimalType),
+              Text(isAr ? 'أدخل اسم الأليف لإنشاء الرمز' : 'Enter pet name to generate QR', 
+                textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _animalNameController,
                 decoration: InputDecoration(
-                  labelText: isAr ? 'نوع الحيوان' : 'Animal Type',
-                  prefixIcon: Icon(Icons.category, color: primaryColor),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  labelText: isAr ? 'اسم الحيوان' : 'Pet Name', 
+                  prefixIcon: Icon(Icons.badge, color: primaryColor), 
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))
                 ),
-                items: animalTypes.map((String type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                onChanged: (String? val) => setState(() => selectedAnimalType = isAr ? val! : _reverseTranslate(val!)),
+                validator: (value) => value!.isEmpty ? (isAr ? 'مطلوب' : 'Required') : null,
               ),
-              const SizedBox(height: 16),
-              _buildTextField(_ownerNameController, isAr ? 'اسم الصاحب' : 'Owner Name', Icons.person, primaryColor),
-              const SizedBox(height: 16),
-              _buildTextField(_ownerPhoneController, isAr ? 'رقم الهاتف' : 'Phone Number', Icons.phone, primaryColor, keyboardType: TextInputType.phone),
               const SizedBox(height: 40),
               ElevatedButton.icon(
                 onPressed: isSaving ? null : _saveToFirebase,
-                icon: isSaving ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.qr_code),
+                icon: isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.qr_code),
                 label: Text(isSaving ? (isAr ? 'جاري الحفظ...' : 'Saving...') : (isAr ? 'إنشاء الرمز وكلمة السر' : 'Create QR & Pass')),
                 style: ElevatedButton.styleFrom(backgroundColor: primaryColor, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               ),
@@ -108,42 +100,43 @@ class _AddAnimalViewState extends State<AddAnimalView> {
     );
   }
 
-  String _translateType(String type) {
-    Map<String, String> map = {'قطة': 'Cat', 'كلب': 'Dog', 'طائر': 'Bird', 'أرنب': 'Rabbit', 'هامستر': 'Hamster'};
-    return map[type] ?? type;
-  }
-  String _reverseTranslate(String type) {
-    Map<String, String> map = {'Cat': 'قطة', 'Dog': 'كلب', 'Bird': 'طائر', 'Rabbit': 'أرنب', 'Hamster': 'هامستر'};
-    return map[type] ?? type;
-  }
-
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, Color color, {TextInputType? keyboardType}) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, color: color), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-      validator: (value) => value!.isEmpty ? (MyApp.of(context).locale.languageCode == 'ar' ? 'مطلوب' : 'Required') : null,
-    );
-  }
-
   Future<void> _saveToFirebase() async {
     if (_formKey.currentState!.validate()) {
       setState(() => isSaving = true);
       try {
         final newPassword = _generateRandomPassword();
-        final docRef = await FirebaseFirestore.instance.collection('pets').add({
-          'animalName': _animalNameController.text,
-          'animalType': selectedAnimalType,
-          'ownerName': _ownerNameController.text,
-          'ownerPhone': _ownerPhoneController.text,
+        final querySnapshot = await FirebaseFirestore.instance.collection('pets').orderBy(FieldPath.documentId).get();
+
+        int nextId = 1;
+        if (querySnapshot.docs.isNotEmpty) {
+          List<int> existingIds = querySnapshot.docs.map((doc) => int.tryParse(doc.id) ?? 0).toList();
+          existingIds.sort();
+          nextId = existingIds.last + 1;
+        }
+
+        final customId = nextId.toString();
+
+        await FirebaseFirestore.instance.collection('pets').doc(customId).set({
+          'animalName': _animalNameController.text.trim(),
+          'animalType': '',
+          'gender': '',
+          'sterilizationStatus': '',
+          'ownerName': '',
+          'ownerPhone': '',
           'editPassword': newPassword,
           'timestamp': FieldValue.serverTimestamp(),
+          'petIndex': nextId,
+          'vaccinations_list': [],
+          'surgeries_list': [],
+          'medications_list': [],
+          'allergies_list': [],
+          'chronic_diseases_list': [],
         });
 
-        // رابط GitHub Pages الحقيقي
-        final url = 'https://mohamedyasser37.github.io/qpet1/#/pet/${docRef.id}';
+        final url = 'https://mohamedyasser37.github.io/qpet1/#/pet/$customId';
         
         setState(() {
+          currentPetId = customId;
           generatedUrl = url;
           editPassword = newPassword;
           isSaving = false;
@@ -151,6 +144,7 @@ class _AddAnimalViewState extends State<AddAnimalView> {
         _showQrDialog();
       } catch (e) {
         setState(() => isSaving = false);
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -158,69 +152,57 @@ class _AddAnimalViewState extends State<AddAnimalView> {
   void _showQrDialog() {
     bool isAr = MyApp.of(context).locale.languageCode == 'ar';
     Color primaryColor = Theme.of(context).primaryColor;
-    showGeneralDialog(
+    showDialog(
       context: context,
-      pageBuilder: (context, anim1, anim2) => const SizedBox.shrink(),
-      transitionBuilder: (context, anim1, anim2, child) {
-        return Transform.scale(
-          scale: anim1.value,
-          child: Opacity(
-            opacity: anim1.value,
-            child: AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Center(child: Text(isAr ? 'تم التسجيل بنجاح' : 'Registered Successfully')),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    RepaintBoundary(
-                      key: _qrKey,
-                      child: Container(
-                        color: Colors.white,
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: [
-                            Icon(Icons.pets, color: primaryColor, size: 30),
-                            const SizedBox(height: 10),
-                            SizedBox(width: 180, height: 180, child: QrImageView(data: generatedUrl!, version: QrVersions.auto, eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.circle, color: primaryColor))),
-                            const SizedBox(height: 10),
-                            Text(_animalNameController.text, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const Divider(),
-                    Text(isAr ? 'كلمة سر التعديل:' : 'Edit Password:', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    Container(
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      width: double.infinity,
-                      decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
-                      child: ListTile(
-                        title: Text(editPassword!, textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor, letterSpacing: 3)),
-                        trailing: IconButton(
-                          icon: Icon(Icons.copy_all, color: primaryColor),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: editPassword!));
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isAr ? 'تم النسخ' : 'Copied')));
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Center(child: Text(isAr ? 'تم التسجيل بنجاح' : 'Registered Successfully')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RepaintBoundary(
+                key: _qrKey,
+                child: Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      Icon(Icons.pets, color: primaryColor, size: 30),
+                      const SizedBox(height: 10),
+                      SizedBox(width: 180, height: 180, child: QrImageView(data: generatedUrl!, version: QrVersions.auto, eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.circle, color: primaryColor))),
+                      const SizedBox(height: 10),
+                      Text('ID: $currentPetId', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: primaryColor)),
+                    ],
+                  ),
                 ),
               ),
-              actions: [
-                TextButton.icon(
-                  onPressed: _shareQrCode,
-                  icon: Icon(Icons.share, color: primaryColor),
-                  label: Text(isAr ? 'مشاركة أو حفظ' : 'Share or Save', style: TextStyle(color: primaryColor)),
+              const Divider(),
+              Text(isAr ? 'كلمة سر التعديل:' : 'Edit Password:', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                width: double.infinity,
+                decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+                child: ListTile(
+                  title: Text(editPassword!, textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor, letterSpacing: 3)),
+                  trailing: IconButton(
+                    icon: Icon(Icons.copy_all, color: primaryColor),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: editPassword!));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isAr ? 'تم النسخ' : 'Copied')));
+                    },
+                  ),
                 ),
-                TextButton(onPressed: () => Navigator.pop(context), child: Text(isAr ? 'إغلاق' : 'Close')),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+        actions: [
+          TextButton.icon(onPressed: _shareQrCode, icon: Icon(Icons.share, color: primaryColor), label: Text(isAr ? 'مشاركة' : 'Share')),
+          TextButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: Text(isAr ? 'إغلاق' : 'Close')),
+        ],
+      ),
     );
   }
 }
