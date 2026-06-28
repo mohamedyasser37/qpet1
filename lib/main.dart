@@ -47,11 +47,13 @@ void main() async {
   String? initialPetId;
   if (kIsWeb) {
     final uri = Uri.base;
+    // التقاط الـ ID سواء كان بعد #/pet/ أو في المسار العادي
     if (uri.fragment.contains('/pet/')) {
       initialPetId = uri.fragment.split('/pet/').last;
     } else if (uri.path.contains('/pet/')) {
       initialPetId = uri.path.split('/pet/').last;
     }
+    // تنظيف الـ ID من أي علامات استفهام زائدة
     if (initialPetId != null && initialPetId!.contains('?')) {
       initialPetId = initialPetId!.split('?').first;
     }
@@ -81,16 +83,19 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late Locale locale;
   late Color themeColor;
+  bool showPublicProfile = false;
 
   @override
   void initState() {
     super.initState();
     locale = widget.initialLocale;
     themeColor = widget.initialColor;
+    showPublicProfile = widget.startPetId != null;
   }
 
   void setLocale(Locale newLocale) => setState(() => locale = newLocale);
   void setThemeColor(Color color) => setState(() => themeColor = color);
+  void enterApp() => setState(() => showPublicProfile = false);
 
   @override
   Widget build(BuildContext context) {
@@ -124,8 +129,8 @@ class _MyAppState extends State<MyApp> {
       builder: (context, child) {
         return ConnectivityWrapper(child: child!);
       },
-      home: widget.startPetId != null 
-          ? PublicPetProfilePage(petId: widget.startPetId!) 
+      home: showPublicProfile 
+          ? PublicPetProfilePage(petId: widget.startPetId!, onOpenApp: enterApp) 
           : const SplashScreen(),
     );
   }
@@ -133,13 +138,33 @@ class _MyAppState extends State<MyApp> {
 
 class PublicPetProfilePage extends StatelessWidget {
   final String petId;
-  const PublicPetProfilePage({super.key, required this.petId});
+  final VoidCallback onOpenApp;
+  const PublicPetProfilePage({super.key, required this.petId, required this.onOpenApp});
 
   @override
   Widget build(BuildContext context) {
     bool isAr = Localizations.localeOf(context).languageCode == 'ar';
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FB),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            child: ElevatedButton.icon(
+              onPressed: onOpenApp,
+              icon: const Icon(Icons.login, size: 18),
+              label: Text(isAr ? 'فتح التطبيق' : 'Open App'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF004040), 
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance.collection('pets').doc(petId).snapshots(),
         builder: (context, snapshot) {
@@ -148,34 +173,13 @@ class PublicPetProfilePage extends StatelessWidget {
           if (!snapshot.hasData || !snapshot.data!.exists) return Center(child: Text(isAr ? 'الأليف غير موجود' : 'Pet Not Found'));
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
-          final color = Theme.of(context).primaryColor;
+          final color = const Color(0xFF004040);
           final String? ownerUid = data['ownerUid'];
 
-          return Scaffold(
-            appBar: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => const SplashScreen())),
-                    icon: const Icon(Icons.login, size: 18),
-                    label: Text(isAr ? 'فتح التطبيق' : 'Open App'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: color, 
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFFF8F9FB),
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: Center(
-                child: Container(
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Center(
+              child: Container(
                 constraints: const BoxConstraints(maxWidth: 600),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)]),
                 child: Column(
@@ -265,7 +269,7 @@ class PublicPetProfilePage extends StatelessWidget {
                 ),
               ),
             ),
-          ));
+          );
         },
       ),
     );
@@ -325,7 +329,6 @@ class _ConnectivityWrapperState extends State<ConnectivityWrapper> {
   }
 
   void _updateStatus(List<ConnectivityResult> results) {
-    // إذا لم يوجد أي نوع من أنواع الاتصال في القائمة، نعتبر الجهاز أوفلاين
     final bool offline = results.every((result) => result == ConnectivityResult.none);
     if (_isOffline != offline) {
       setState(() => _isOffline = offline);
