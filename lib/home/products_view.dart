@@ -145,6 +145,7 @@ class _ProductsViewState extends State<ProductsView> {
   }
 
   Widget _buildProductCard(BuildContext context, Product product, bool isAr, Color primaryColor, bool isDark, Color goldColor, Color textColor) {
+    // التحقق مما إذا كان المنتج موجوداً في السلة (بأي لون)
     bool isInCart = cartItems.any((item) => item.product.id == product.id);
 
     return Container(
@@ -221,8 +222,10 @@ class _ProductsViewState extends State<ProductsView> {
                       onPressed: () {
                         setState(() {
                           if (isInCart) {
+                            // إذا كان موجوداً، نقوم بمسحه من السلة تماماً
                             cartItems.removeWhere((item) => item.product.id == product.id);
                           } else {
+                            // إذا لم يكن موجوداً، نضيفه بدون لون محدد (أو لون افتراضي)
                             cartItems.add(CartItem(product: product));
                           }
                         });
@@ -320,7 +323,8 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     Color primaryColor = Theme.of(context).primaryColor;
     Color goldColor = const Color(0xFFC5A059);
     Color textColor = isDark ? Colors.white : Colors.black87;
-    bool isInCart = cartItems.any((item) => item.product.id == widget.product.id);
+    // التحقق من وجود هذا المنتج باللون المحدد في السلة
+    bool isThisColorInCart = cartItems.any((item) => item.product.id == widget.product.id && item.selectedColor == _selectedColor);
 
     return Scaffold(
       backgroundColor: themeBg,
@@ -444,17 +448,19 @@ class _ProductDetailViewState extends State<ProductDetailView> {
               child: ElevatedButton.icon(
                 onPressed: () {
                   setState(() {
-                    if (isInCart) {
-                      cartItems.removeWhere((item) => item.product.id == widget.product.id);
+                    if (isThisColorInCart) {
+                      // حذف اللون المحدد فقط من السلة
+                      cartItems.removeWhere((item) => item.product.id == widget.product.id && item.selectedColor == _selectedColor);
                     } else {
+                      // إضافة اللون المحدد للسلة
                       cartItems.add(CartItem(product: widget.product, selectedColor: _selectedColor));
                     }
                   });
                 },
-                icon: Icon(isInCart ? Icons.remove_shopping_cart : Icons.add_shopping_cart),
-                label: Text(isInCart ? (isAr ? 'حذف من السلة' : 'Remove from Cart') : (isAr ? 'أضف للسلة' : 'Add to Cart'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                icon: Icon(isThisColorInCart ? Icons.remove_shopping_cart : Icons.add_shopping_cart),
+                label: Text(isThisColorInCart ? (isAr ? 'حذف اللون من السلة' : 'Remove Color from Cart') : (isAr ? 'أضف هذا اللون للسلة' : 'Add this Color to Cart'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isInCart ? Colors.grey : (isDark ? goldColor : primaryColor), 
+                  backgroundColor: isThisColorInCart ? Colors.grey : (isDark ? goldColor : primaryColor), 
                   foregroundColor: isDark ? Colors.black87 : Colors.white, 
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
                 ),
