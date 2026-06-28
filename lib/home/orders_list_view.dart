@@ -127,7 +127,12 @@ class _OrdersListViewState extends State<OrdersListView> {
                 if (order['items'] != null) ...(order['items'] as List).map((item) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text('${item['quantity']}x ${item['name']}', style: TextStyle(fontSize: 14, color: textColor)),
+                    Expanded(
+                      child: Text(
+                        '${item['quantity']}x ${item['name']}${item['color'] != null ? ' (${item['color']})' : ''}', 
+                        style: TextStyle(fontSize: 14, color: textColor)
+                      ),
+                    ),
                     Text('${item['price']} ج.م', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                   ]),
                 )),

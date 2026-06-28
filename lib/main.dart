@@ -325,16 +325,30 @@ class PublicPetProfilePage extends StatelessWidget {
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(l, style: const TextStyle(color: Colors.grey)), Text(v ?? '--', style: const TextStyle(fontWeight: FontWeight.bold))])
   );
 
-  Widget _socialIcon(IconData? icon, String url, Color color, {bool isWhatsApp = false}) => InkWell(
-    onTap: () => _launchUrl(url),
-    child: CircleAvatar(
-      radius: 22, 
-      backgroundColor: color.withOpacity(0.1), 
-      child: isWhatsApp 
-        ? SvgPicture.asset('assets/WhatsApp.svg', width: 24, height: 24)
-        : Icon(icon, color: color, size: 24)
-    ),
-  );
+  Widget _socialIcon(IconData? icon, String url, Color color, {bool isWhatsApp = false}) {
+    String finalUrl = url;
+    if (isWhatsApp) {
+      // تنظيف الرقم وإضافة كود الدولة إذا لم يوجد
+      String phone = url.split('wa.me/').last;
+      if (phone.startsWith('0')) {
+        phone = '2$phone';
+      } else if (!phone.startsWith('2') && !phone.startsWith('+')) {
+        phone = '2$phone';
+      }
+      finalUrl = 'https://wa.me/${phone.replaceAll(' ', '').replaceAll('+', '')}';
+    }
+
+    return InkWell(
+      onTap: () => _launchUrl(finalUrl),
+      child: CircleAvatar(
+        radius: 22, 
+        backgroundColor: color.withOpacity(0.1), 
+        child: isWhatsApp 
+          ? SvgPicture.asset('assets/WhatsApp.svg', width: 24, height: 24)
+          : Icon(icon, color: color, size: 24)
+      ),
+    );
+  }
 }
 
 class ConnectivityWrapper extends StatefulWidget {
