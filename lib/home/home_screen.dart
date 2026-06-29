@@ -17,6 +17,7 @@ import 'package:vet/home/add_product_view.dart';
 import 'package:vet/home/orders_list_view.dart';
 import 'package:vet/home/admin_reports_view.dart';
 import 'package:vet/home/settings_view.dart';
+import 'package:vet/home/bulk_export_view.dart'; // إضافة الاستيراد
 import 'package:vet/main.dart';
 import 'add_admin_view.dart';
 import 'edit_pet_view.dart';
@@ -217,6 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
               childAspectRatio: 1.4,
               children: [
                 _buildGridCard(isAr ? 'إضافة أليف' : 'Add Pet', Icons.add_circle_outline, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAnimalView())), isDark),
+                _buildGridCard(isAr ? 'تصدير الرموز' : 'Export Codes', Icons.file_download_outlined, Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BulkExportView())), isDark),
                 _buildGridCard(isAr ? 'إضافة منتج' : 'Add Product', Icons.add_shopping_cart_outlined, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductView())), isDark),
                 _buildGridCard(isAr ? 'إضافة ادمن' : 'Add Admin', Icons.admin_panel_settings_outlined, gold, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddAdminView())), isDark),
               ],
@@ -309,18 +311,17 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 15),
           ...petsData.map((pet) => _buildPetCard(pet, isAr, color, isDark, gold)).toList(),
           
-          if (petsData.length < 2) 
-            Padding(
-              padding: const EdgeInsets.only(top: 20),
-              child: Center(
-                child: TextButton.icon(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QrScannerView())).then((_) => _fetchInitialData()),
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: Text(isAr ? 'إضافة حيوان آخر (بحد أقصى 2)' : 'Add another pet (Max 2)'),
-                  style: TextButton.styleFrom(foregroundColor: gold),
-                ),
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: Center(
+              child: TextButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QrScannerView())).then((_) => _fetchInitialData()),
+                icon: const Icon(Icons.add_circle_outline),
+                label: Text(isAr ? 'إضافة حيوان آخر' : 'Add another pet'),
+                style: TextButton.styleFrom(foregroundColor: gold),
               ),
             ),
+          ),
         ],
       ),
     );
@@ -573,7 +574,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showDownloadQr() {
     const downloadUrl = 'https://drive.google.com/file/d/1D1zcqoLgvFiJjJ54vQrYEKWtFQWFlGav/view?usp=sharing';
-    showDialog(context: context, builder: (context) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)), title: const Center(child: Text('QPet App')), content: SizedBox(width: double.maxFinite, child: Column(mainAxisSize: MainAxisSize.min, children: [RepaintBoundary(key: _appQrKey, child: Container(color: Colors.white, padding: const EdgeInsets.all(10), child: QrImageView(data: downloadUrl, size: 200, eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.circle, color: Colors.teal)))), const SizedBox(height: 20), ElevatedButton.icon(onPressed: _shareAppQr, icon: const Icon(Icons.share), label: const Text('مشاركة الرابط'), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))]))));
+    showDialog(context: context, builder: (context) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)), title: const Center(child: Text('QPet App')), content: SizedBox(width: double.maxFinite, child: Column(mainAxisSize: MainAxisSize.min, children: [RepaintBoundary(key: _appQrKey, child: Container(color: Colors.white, padding: const EdgeInsets.all(10), child: QrImageView(data: downloadUrl, size: 200, embeddedImage: const AssetImage('assets/final_logo.jpeg'), embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(40, 40)), eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.circle, color: Colors.teal)))), const SizedBox(height: 20), ElevatedButton.icon(onPressed: _shareAppQr, icon: const Icon(Icons.share), label: const Text('مشاركة الرابط'), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))]))));
   }
 
   Future<void> _shareAppQr() async {
@@ -616,6 +617,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: QrImageView(
                         data: url, 
                         version: QrVersions.auto, 
+                        embeddedImage: const AssetImage('assets/final_logo.jpeg'),
+                        embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(40, 40)),
                         eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.circle, color: primaryColor)
                       )
                     ),

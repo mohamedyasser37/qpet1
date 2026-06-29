@@ -47,13 +47,11 @@ void main() async {
   String? initialPetId;
   if (kIsWeb) {
     final uri = Uri.base;
-    // التقاط الـ ID سواء كان بعد #/pet/ أو في المسار العادي
     if (uri.fragment.contains('/pet/')) {
       initialPetId = uri.fragment.split('/pet/').last;
     } else if (uri.path.contains('/pet/')) {
       initialPetId = uri.path.split('/pet/').last;
     }
-    // تنظيف الـ ID من أي علامات استفهام زائدة
     if (initialPetId != null && initialPetId!.contains('?')) {
       initialPetId = initialPetId!.split('?').first;
     }
@@ -144,22 +142,28 @@ class PublicPetProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isAr = Localizations.localeOf(context).languageCode == 'ar';
+    const Color primaryGreen = Color(0xFF004040);
+    const Color royalGold = Color(0xFFC5A059);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: const Color(0xFFFDF9F5),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        centerTitle: true,
+        title: Image.asset('assets/final_logo.jpeg', height: 40),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
             child: ElevatedButton.icon(
               onPressed: onOpenApp,
-              icon: const Icon(Icons.login, size: 18),
+              icon: const Icon(Icons.open_in_new, size: 18),
               label: Text(isAr ? 'فتح التطبيق' : 'Open App'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF004040), 
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                backgroundColor: royalGold, 
+                foregroundColor: Colors.black87,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
@@ -169,39 +173,69 @@ class PublicPetProfilePage extends StatelessWidget {
         stream: FirebaseFirestore.instance.collection('pets').doc(petId).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) return Center(child: Text(isAr ? 'خطأ في التحميل' : 'Error Loading'));
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: royalGold));
           if (!snapshot.hasData || !snapshot.data!.exists) return Center(child: Text(isAr ? 'الأليف غير موجود' : 'Pet Not Found'));
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
-          final color = const Color(0xFF004040);
           final String? ownerUid = data['ownerUid'];
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            padding: const EdgeInsets.all(24),
             child: Center(
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 600),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)]),
+                constraints: const BoxConstraints(maxWidth: 700),
+                decoration: BoxDecoration(
+                  color: Colors.white, 
+                  borderRadius: BorderRadius.circular(35), 
+                  boxShadow: [BoxShadow(color: royalGold.withOpacity(0.1), blurRadius: 30, offset: const Offset(0, 10))],
+                  border: Border.all(color: royalGold.withOpacity(0.1), width: 1),
+                ),
                 child: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      padding: const EdgeInsets.symmetric(vertical: 50),
                       width: double.infinity,
-                      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
-                      child: Icon(Icons.pets, color: color, size: 100),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [royalGold.withOpacity(0.05), Colors.white],
+                        ),
+                      ),
                       child: Column(
                         children: [
-                          Text(data['animalName'] ?? '', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 10),
-                          _info(isAr ? 'النوع' : 'Type', data['animalType'], Icons.category, color),
-                          _info(isAr ? 'الجنس' : 'Gender', data['gender'], Icons.transgender, color),
-                          _info(isAr ? 'معقم / مخصي' : 'Neutered/Spayed', data['sterilizationStatus'], Icons.content_cut, color),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Image.asset('assets/final_logo.jpeg', width: 120, height: 120, fit: BoxFit.contain),
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(color: primaryGreen, borderRadius: BorderRadius.circular(20)),
+                            child: Text('Smart ID System', style: TextStyle(color: royalGold, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
+                      child: Column(
+                        children: [
+                          Text(data['animalName'] ?? '', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: primaryGreen)),
+                          const SizedBox(height: 5),
+                          Text(data['animalType'] ?? '', style: const TextStyle(fontSize: 18, color: royalGold, fontWeight: FontWeight.w500)),
                           
-                          const Divider(height: 40),
-                          _info(isAr ? 'المالك' : 'Owner', data['ownerName'], Icons.person, color),
+                          const SizedBox(height: 30),
+                          _buildSectionTitle(isAr ? 'البيانات الأساسية' : 'Basic Information', royalGold),
+                          _info(isAr ? 'الجنس' : 'Gender', data['gender'], Icons.transgender, royalGold),
+                          _info(isAr ? 'معقم / مخصي' : 'Neutered/Spayed', data['sterilizationStatus'], Icons.content_cut, royalGold),
+                          
+                          const SizedBox(height: 25),
+                          _buildSectionTitle(isAr ? 'بيانات المالك' : 'Owner Details', royalGold),
+                          _info(isAr ? 'الاسم' : 'Owner', data['ownerName'], Icons.person_outline, royalGold),
                           
                           if (ownerUid != null)
                             StreamBuilder<DocumentSnapshot>(
@@ -217,7 +251,7 @@ class PublicPetProfilePage extends StatelessWidget {
                                 if (!hasFacebook && !hasTelegram && !hasWhatsapp) return const SizedBox.shrink();
 
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -232,38 +266,40 @@ class PublicPetProfilePage extends StatelessWidget {
                               },
                             ),
 
-                          _info(isAr ? 'رقم التواصل' : 'Contact', data['ownerPhone'], Icons.phone, color),
+                          _info(isAr ? 'رقم التواصل' : 'Contact', data['ownerPhone'], Icons.phone_android_outlined, royalGold),
                           const SizedBox(height: 20),
                           if (data['ownerPhone'] != null && data['ownerPhone'].toString().isNotEmpty) 
                             ElevatedButton.icon(
                               onPressed: () => _launchUrl('tel:${data['ownerPhone']}'),
-                              icon: const Icon(Icons.call),
+                              icon: const Icon(Icons.call_rounded),
                               label: Text(isAr ? 'اتصل بالمالك الآن' : 'Call Owner Now'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green, 
                                 foregroundColor: Colors.white, 
-                                minimumSize: const Size(double.infinity, 55), 
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                                minimumSize: const Size(double.infinity, 60), 
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                                elevation: 5,
+                                shadowColor: Colors.green.withOpacity(0.3),
                               ),
                             ),
                           
-                          const Divider(height: 40),
-                          Align(alignment: isAr ? Alignment.centerRight : Alignment.centerLeft, child: Text(isAr ? 'السجل الطبي' : 'Medical Record', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-                          const SizedBox(height: 15),
+                          const SizedBox(height: 35),
+                          _buildSectionTitle(isAr ? 'السجل الطبي' : 'Medical Record', royalGold),
                           _medInfo(isAr ? 'الوزن' : 'Weight', '${data['weight'] ?? '--'} kg'),
                           _medInfo(isAr ? 'العمر' : 'Age', data['age']),
 
-                          // عرض قوائم السجل الطبي بالكامل
-                          _buildMedicalList(isAr ? 'التطعيمات:' : 'Vaccinations:', data['vaccinations_list'], (item) => '${item['type']} (${item['date']})${item['next'] != '' ? ' -> Next: ${item['next']}' : ''}', isAr),
-                          _buildMedicalList(isAr ? 'العمليات الجراحية:' : 'Surgeries:', data['surgeries_list'], (item) => '${item['name']} (${item['date']})', isAr),
-                          _buildMedicalList(isAr ? 'الأدوية الحالية:' : 'Current Medications:', data['medications_list'], (item) => '${item['name']} - ${item['duration']}', isAr),
-                          _buildMedicalList(isAr ? 'جرعات الديدان:' : 'Deworming Doses:', data['deworming_list'], (item) => '${item['name']} (${item['date']})', isAr),
+                          _buildMedicalList(isAr ? 'التطعيمات' : 'Vaccinations', data['vaccinations_list'], (item) => '${item['type']} (${item['date']})${item['next'] != '' ? ' -> ${isAr ? 'القادمة' : 'Next'}: ${item['next']}' : ''}'),
+                          _buildMedicalList(isAr ? 'العمليات الجراحية' : 'Surgeries', data['surgeries_list'], (item) => '${item['name']} (${item['date']})'),
+                          _buildMedicalList(isAr ? 'الأدوية الحالية' : 'Current Medications', data['medications_list'], (item) => '${item['name']} - ${item['duration']}'),
+                          _buildMedicalList(isAr ? 'جرعات الديدان' : 'Deworming Doses', data['deworming_list'], (item) => '${item['name']} (${item['date']})'),
                           
-                          _buildSimpleMedicalList(isAr ? 'سجل الحساسية:' : 'Allergies:', data['allergies_list'], isAr),
-                          _buildSimpleMedicalList(isAr ? 'الأمراض المزمنة:' : 'Chronic Diseases:', data['chronic_diseases_list'], isAr),
+                          _buildSimpleMedicalList(isAr ? 'سجل الحساسية' : 'Allergies', data['allergies_list']),
+                          _buildSimpleMedicalList(isAr ? 'الأمراض المزمنة' : 'Chronic Diseases', data['chronic_diseases_list']),
                           
-                          const SizedBox(height: 40),
-                          const Text('QPet Team - Smart ID System', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 50),
+                          const Divider(),
+                          const SizedBox(height: 15),
+                          Text('QPet Team - Smart ID System', style: TextStyle(color: royalGold.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                         ],
                       ),
                     ),
@@ -277,7 +313,20 @@ class PublicPetProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildMedicalList(String title, dynamic list, String Function(dynamic) labelBuilder, bool isAr) {
+  Widget _buildSectionTitle(String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Row(
+        children: [
+          Container(width: 4, height: 20, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 10),
+          Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMedicalList(String title, dynamic list, String Function(dynamic) labelBuilder) {
     if (list == null || (list as List).isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,7 +339,7 @@ class PublicPetProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildSimpleMedicalList(String title, dynamic list, bool isAr) {
+  Widget _buildSimpleMedicalList(String title, dynamic list) {
     if (list == null || (list as List).isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,7 +377,6 @@ class PublicPetProfilePage extends StatelessWidget {
   Widget _socialIcon(IconData? icon, String url, Color color, {bool isWhatsApp = false}) {
     String finalUrl = url;
     if (isWhatsApp) {
-      // تنظيف الرقم وإضافة كود الدولة إذا لم يوجد
       String phone = url.split('wa.me/').last;
       if (phone.startsWith('0')) {
         phone = '2$phone';

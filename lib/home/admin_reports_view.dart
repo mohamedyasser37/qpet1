@@ -29,6 +29,10 @@ class _AdminReportsViewState extends State<AdminReportsView> with SingleTickerPr
 
   String _searchQuery = '';
   
+  // متغيرات التحديد المتعدد
+  bool _isSelectionMode = false;
+  final Set<String> _selectedPetIds = {};
+
   // متغيرات الـ Pagination للحيوانات
   List<DocumentSnapshot> _pets = [];
   bool _isLoadingPets = false;
@@ -172,7 +176,17 @@ class _AdminReportsViewState extends State<AdminReportsView> with SingleTickerPr
                     children: [
                       Icon(Icons.pets, color: primaryColor, size: 30),
                       const SizedBox(height: 10),
-                      SizedBox(width: 180, height: 180, child: QrImageView(data: url, version: QrVersions.auto, eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.circle, color: primaryColor))),
+                      SizedBox(
+                        width: 180, 
+                        height: 180, 
+                        child: QrImageView(
+                          data: url, 
+                          version: QrVersions.auto, 
+                          embeddedImage: const AssetImage('assets/final_logo.jpeg'),
+                          embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(35, 35)),
+                          eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.circle, color: primaryColor)
+                        )
+                      ),
                       const SizedBox(height: 10),
                       Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: primaryColor)),
                     ],
@@ -205,9 +219,24 @@ class _AdminReportsViewState extends State<AdminReportsView> with SingleTickerPr
     return Scaffold(
       backgroundColor: themeBg,
       appBar: AppBar(
-        title: Text(isAr ? 'السجلات والنظام' : 'System Records', style: const TextStyle(color: Colors.white)),
-        backgroundColor: primaryColor,
+        title: _isSelectionMode 
+            ? Text('${_selectedPetIds.length} ${isAr ? 'محدد' : 'Selected'}')
+            : Text(isAr ? 'السجلات والنظام' : 'System Records', style: const TextStyle(color: Colors.white)),
+        backgroundColor: _isSelectionMode ? Colors.red.shade900 : primaryColor,
         iconTheme: const IconThemeData(color: Colors.white),
+        leading: _isSelectionMode 
+            ? IconButton(
+                icon: const Icon(Icons.close), 
+                onPressed: () => setState(() { _isSelectionMode = false; _selectedPetIds.clear(); })
+              )
+            : null,
+        actions: [
+          if (_isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.delete_forever), 
+              onPressed: () => _confirmBulkDeletePets(isAr, isDark, primaryColor)
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(110),
           child: Column(
@@ -322,26 +351,130 @@ class _AdminReportsViewState extends State<AdminReportsView> with SingleTickerPr
         
         final doc = displayPets[index];
         final pet = doc.data() as Map<String, dynamic>;
+        final bool isSelected = _selectedPetIds.contains(doc.id);
+
         return Card(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          color: isSelected ? Colors.red.withOpacity(0.1) : (isDark ? const Color(0xFF1E1E1E) : Colors.white),
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: isDark ? BorderSide(color: Colors.white.withOpacity(0.05)) : BorderSide.none),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15), 
+            side: isSelected 
+                ? const BorderSide(color: Colors.red, width: 2) 
+                : (isDark ? BorderSide(color: Colors.white.withOpacity(0.05)) : BorderSide.none)
+          ),
           child: ListTile(
-            onTap: () => _showPetQr(doc.id, pet, isAr, primaryColor, isDark),
-            leading: Icon(Icons.pets, color: primaryColor, size: 30),
-            title: Text(pet['animalName'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-            subtitle: Text('${isAr ? 'النوع:' : 'Type:'} ${pet['animalType'] ?? ''} | ${isAr ? 'المالك:' : 'Owner:'} ${pet['ownerName'] ?? ''}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+            onTap: () {
+              if (_isSelectionMode) {
+                _toggleSelection(doc.id);
+              } else {
+                _showPetQr(doc.id, pet, isAr, primaryColor, isDark);
+              }
+            },
+            onLongPress: () {
+              if (!_isSelectionMode) {
+                setState(() {
+                  _isSelectionMode = true;
+                  _selectedPetIds.add(doc.id);
+                });
+              }
+            },
+            leading: Stack(
               children: [
-                Text(pet['ownerPhone'] ?? '', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                const SizedBox(width: 8),
-                IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20), onPressed: () => _confirmDeletePet(doc.id, pet, isAr, primaryColor, isDark)),
+                Icon(Icons.pets, color: primaryColor, size: 30),
+                if (isSelected)
+                  const Positioned(
+                    bottom: 0, right: 0,
+                    child: CircleAvatar(radius: 8, backgroundColor: Colors.red, child: Icon(Icons.check, size: 10, color: Colors.white)),
+                  ),
               ],
             ),
+            title: Text(pet['animalName'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+            subtitle: Text('${isAr ? 'النوع:' : 'Type:'} ${pet['animalType'] ?? ''} | ${isAr ? 'المالك:' : 'Owner:'} ${pet['ownerName'] ?? ''}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            trailing: _isSelectionMode 
+                ? Checkbox(
+                    value: isSelected, 
+                    onChanged: (_) => _toggleSelection(doc.id),
+                    activeColor: Colors.red,
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(pet['ownerPhone'] ?? '', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      const SizedBox(width: 8),
+                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20), onPressed: () => _confirmDeletePet(doc.id, pet, isAr, primaryColor, isDark)),
+                    ],
+                  ),
           ),
         );
       },
+    );
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedPetIds.contains(id)) {
+        _selectedPetIds.remove(id);
+        if (_selectedPetIds.isEmpty) _isSelectionMode = false;
+      } else {
+        _selectedPetIds.add(id);
+      }
+    });
+  }
+
+  void _confirmBulkDeletePets(bool isAr, bool isDark, Color color) {
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            const SizedBox(width: 10),
+            Text(isAr ? 'حذف جماعي' : 'Bulk Delete', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+          ],
+        ),
+        content: Text(
+          isAr 
+            ? 'هل أنت متأكد من حذف ${_selectedPetIds.length} سجلات نهائياً؟ لا يمكن التراجع عن هذا الفعل.' 
+            : 'Are you sure you want to permanently delete ${_selectedPetIds.length} records? This action cannot be undone.',
+          style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black54),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: Text(isAr ? 'إغلاق' : 'Close')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(c);
+              setState(() => _isLoadingPets = true);
+              
+              final batch = FirebaseFirestore.instance.batch();
+              for (String id in _selectedPetIds) {
+                batch.delete(FirebaseFirestore.instance.collection('pets').doc(id));
+              }
+              
+              await batch.commit();
+              
+              setState(() {
+                _isSelectionMode = false;
+                _selectedPetIds.clear();
+              });
+              
+              _fetchPets(reset: true);
+              
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isAr ? 'تم الحذف بنجاح' : 'Deleted successfully'),
+                    backgroundColor: Colors.red,
+                  )
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: Text(isAr ? 'حذف الكل' : 'Delete All'),
+          ),
+        ],
+      ),
     );
   }
 

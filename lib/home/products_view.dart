@@ -53,29 +53,32 @@ class Product {
   final double price;
   final double shippingPrice;
   final String imageUrl;
+  final List<String> imageUrls; // دعم تعدد الصور
   final String category;
   final List<String> colors;
 
   Product({
-    required this.id, 
-    required this.name, 
-    required this.description, 
-    required this.price, 
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.price,
     required this.shippingPrice,
-    required this.imageUrl, 
+    required this.imageUrl,
+    this.imageUrls = const [],
     required this.category,
     this.colors = const [],
   });
 
   Map<String, dynamic> toJson() => {
     'id': id, 'name': name, 'description': description, 'price': price,
-    'shippingPrice': shippingPrice, 'imageUrl': imageUrl, 'category': category, 'colors': colors,
+    'shippingPrice': shippingPrice, 'imageUrl': imageUrl, 'imageUrls': imageUrls, 'category': category, 'colors': colors,
   };
 
   factory Product.fromMap(Map<String, dynamic> data) => Product(
     id: data['id'], name: data['name'], description: data['description'],
     price: data['price'].toDouble(), shippingPrice: data['shippingPrice'].toDouble(),
-    imageUrl: data['imageUrl'], category: data['category'],
+    imageUrl: data['imageUrl'], imageUrls: List<String>.from(data['imageUrls'] ?? []),
+    category: data['category'],
     colors: List<String>.from(data['colors'] ?? []),
   );
 
@@ -88,6 +91,7 @@ class Product {
       price: (data['price'] ?? 0).toDouble(),
       shippingPrice: (data['shippingPrice'] ?? 0).toDouble(),
       imageUrl: data['imageUrl'] ?? '',
+      imageUrls: List<String>.from(data['imageUrls'] ?? []),
       category: data['category'] ?? 'عام',
       colors: data['colors'] != null ? List<String>.from(data['colors']) : [],
     );
@@ -191,7 +195,7 @@ class _ProductsViewState extends State<ProductsView> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white, 
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(25),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 8))],
         border: Border.all(color: isDark ? goldColor.withOpacity(0.2) : primaryColor.withOpacity(0.05)),
@@ -206,11 +210,19 @@ class _ProductsViewState extends State<ProductsView> {
                 children: [
                   Positioned.fill(
                     child: Image.network(
-                      product.imageUrl, 
-                      fit: BoxFit.cover, 
+                      product.imageUrl,
+                      fit: BoxFit.cover,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
-                        return Center(child: CircularProgressIndicator(strokeWidth: 2, value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null, color: isDark ? goldColor.withOpacity(0.5) : primaryColor.withOpacity(0.5)));
+                        return Center(
+                          child: SizedBox(
+                            width: 30, height: 30,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: isDark ? goldColor.withOpacity(0.5) : primaryColor.withOpacity(0.5),
+                            ),
+                          ),
+                        );
                       },
                       errorBuilder: (c, e, s) => Center(child: Icon(Icons.broken_image, color: primaryColor))
                     )
@@ -271,6 +283,8 @@ class ProductDetailView extends StatefulWidget {
 class _ProductDetailViewState extends State<ProductDetailView> {
   String? _userRole;
   String? _selectedColor;
+  int _currentImageIndex = 0;
+  late PageController _pageController;
 
   final Map<String, Color> colorMap = {
     'أسود': Colors.black, 'Black': Colors.black, 'أبيض': Colors.white, 'White': Colors.white, 'أحمر': Colors.red, 'Red': Colors.red, 'أزرق': Colors.blue, 'Blue': Colors.blue, 'أخضر': Colors.green, 'Green': Colors.green, 'أصفر': Colors.yellow, 'Yellow': Colors.yellow, 'بني': Colors.brown, 'Brown': Colors.brown, 'رمادي': Colors.grey, 'Grey': Colors.grey, 'وردي': Colors.pink, 'Pink': Colors.pink, 'بنفسجي': Colors.purple, 'Purple': Colors.purple, 'برتقالي': Colors.orange, 'Orange': Colors.orange,
@@ -279,8 +293,15 @@ class _ProductDetailViewState extends State<ProductDetailView> {
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     _fetchUserRole();
     if (widget.product.colors.isNotEmpty) _selectedColor = widget.product.colors.first;
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchUserRole() async {
@@ -299,7 +320,9 @@ class _ProductDetailViewState extends State<ProductDetailView> {
     Color primaryColor = Theme.of(context).primaryColor;
     Color goldColor = const Color(0xFFC5A059);
     Color textColor = isDark ? Colors.white : Colors.black87;
-    
+
+    // استخدام مصفوفة الصور أو الصورة الفردية كاحتياط
+    List<String> images = widget.product.imageUrls.isNotEmpty ? widget.product.imageUrls : [widget.product.imageUrl];
     bool isThisColorInCart = cartItems.any((item) => item.product.id == widget.product.id && item.selectedColor == _selectedColor);
 
     return Scaffold(
@@ -307,37 +330,270 @@ class _ProductDetailViewState extends State<ProductDetailView> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 400, pinned: true, backgroundColor: primaryColor, iconTheme: const IconThemeData(color: Colors.white),
-            flexibleSpace: FlexibleSpaceBar(background: Hero(tag: widget.product.id, child: Image.network(widget.product.imageUrl, fit: BoxFit.cover, loadingBuilder: (context, child, loadingProgress) { if (loadingProgress == null) return child; return Center(child: CircularProgressIndicator(value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null, color: Colors.white.withOpacity(0.5))); }))),
+            expandedHeight: 420,
+            pinned: true,
+            stretch: true,
+            backgroundColor: primaryColor,
+            iconTheme: const IconThemeData(color: Colors.white),
+            flexibleSpace: FlexibleSpaceBar(
+              stretchModes: const [StretchMode.zoomBackground],
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  PageView.builder(
+                    controller: _pageController,
+                    itemCount: images.length,
+                    onPageChanged: (index) => setState(() => _currentImageIndex = index),
+                    itemBuilder: (context, index) => Hero(
+                      tag: "${widget.product.id}_$index",
+                      child: Image.network(
+                        images[index],
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  : null,
+                              color: goldColor.withOpacity(0.5),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  // السهم الأيمن والأيسر للتنقل اليدوي
+                  if (images.length > 1) ...[
+                    Positioned(
+                      left: 10, top: 0, bottom: 0,
+                      child: Center(
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black26,
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                            onPressed: () {
+                              _pageController.previousPage(
+                                duration: const Duration(milliseconds: 300), 
+                                curve: Curves.easeInOut
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 10, top: 0, bottom: 0,
+                      child: Center(
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black26,
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
+                            onPressed: () {
+                              _pageController.nextPage(
+                                duration: const Duration(milliseconds: 300), 
+                                curve: Curves.easeInOut
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  // ظل سفلي للصور - تم إضافة IgnorePointer لكي لا يحجب اللمس
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.2),
+                              Colors.transparent,
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.3),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (images.length > 1)
+                    Positioned(
+                      bottom: 30, left: 0, right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          images.length,
+                          (index) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: _currentImageIndex == index ? 24 : 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: _currentImageIndex == index ? goldColor : Colors.white.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(4),
+                              boxShadow: _currentImageIndex == index
+                                  ? [BoxShadow(color: goldColor.withOpacity(0.4), blurRadius: 4)]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
           SliverToBoxAdapter(
             child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: isDark ? const Color(0xFF1E1E1E) : Colors.white, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+              margin: const EdgeInsets.only(top: 0),
+              padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: (isDark ? goldColor : primaryColor).withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(widget.product.category, style: TextStyle(color: isDark ? goldColor : primaryColor, fontWeight: FontWeight.bold))), Text('${widget.product.price} ${isAr ? 'ج.م' : 'EGP'}', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: isDark ? goldColor : primaryColor))]),
+                  // الفئة والسعر
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: (isDark ? goldColor : primaryColor).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          widget.product.category,
+                          style: TextStyle(
+                            color: isDark ? goldColor : primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${widget.product.price} ${isAr ? 'ج.م' : 'EGP'}',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? goldColor : primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
-                  Text(widget.product.name, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textColor)),
-                  const SizedBox(height: 15),
+                  // اسم المنتج
+                  Text(
+                    widget.product.name,
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+
+                  // الألوان
                   if (widget.product.colors.isNotEmpty) ...[
-                    Text(isAr ? 'الألوان المتاحة' : 'Available Colors', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
-                    const SizedBox(height: 12),
-                    SizedBox(height: 55, child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: widget.product.colors.length, itemBuilder: (context, index) { String colorName = widget.product.colors[index]; bool isSelected = _selectedColor == colorName; Color displayColor = colorMap[colorName] ?? Colors.transparent; return GestureDetector(onTap: () => setState(() => _selectedColor = colorName), child: AnimatedContainer(duration: const Duration(milliseconds: 200), margin: const EdgeInsets.only(right: 12), padding: const EdgeInsets.symmetric(horizontal: 12), decoration: BoxDecoration(color: isSelected ? (isDark ? goldColor.withOpacity(0.1) : primaryColor.withOpacity(0.1)) : (isDark ? Colors.white.withOpacity(0.05) : Colors.white), borderRadius: BorderRadius.circular(15), border: Border.all(color: isSelected ? (isDark ? goldColor : primaryColor) : (isDark ? Colors.white10 : Colors.grey.shade300), width: 2)), child: Row(children: [Container(width: 18, height: 18, decoration: BoxDecoration(color: displayColor, shape: BoxShape.circle, border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade400, width: 0.5))), const SizedBox(width: 8), Text(colorName, style: TextStyle(color: isSelected ? (isDark ? goldColor : primaryColor) : textColor, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal))]))); })),
-                    const SizedBox(height: 25),
+                    Row(
+                      children: [
+                        Icon(Icons.palette_outlined, size: 20, color: goldColor),
+                        const SizedBox(width: 8),
+                        Text(
+                          isAr ? 'الألوان المتاحة' : 'Available Colors',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    SizedBox(
+                      height: 55,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: widget.product.colors.length,
+                        itemBuilder: (context, index) {
+                          String colorName = widget.product.colors[index];
+                          bool isSelected = _selectedColor == colorName;
+                          Color displayColor = colorMap[colorName] ?? Colors.transparent;
+
+                          return GestureDetector(
+                            onTap: () => setState(() => _selectedColor = colorName),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              margin: const EdgeInsets.only(right: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? (isDark ? goldColor.withOpacity(0.15) : primaryColor.withOpacity(0.05))
+                                    : (isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade50),
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
+                                  color: isSelected ? (isDark ? goldColor : primaryColor) : Colors.transparent,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 14, height: 14,
+                                    decoration: BoxDecoration(
+                                      color: displayColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.grey.shade400, width: 0.5),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    colorName,
+                                    style: TextStyle(
+                                      color: isSelected ? (isDark ? goldColor : primaryColor) : textColor,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 30),
                   ],
-                  Text(isAr ? 'وصف المنتج' : 'Product Description', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
-                  const SizedBox(height: 10),
-                  Text(widget.product.description, style: TextStyle(fontSize: 16, color: isDark ? Colors.white70 : Colors.grey.shade600, height: 1.6)),
-                  const SizedBox(height: 140),
+
+                  // الوصف
+                  Row(
+                    children: [
+                      Icon(Icons.description_outlined, size: 20, color: goldColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        isAr ? 'وصف المنتج' : 'Product Description',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.product.description,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 160), // مساحة للـ bottomSheet
                 ],
               ),
             ),
           ),
         ],
       ),
-      bottomSheet: _userRole == 'owner' 
+      bottomSheet: _userRole == 'owner'
         ? Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: isDark ? const Color(0xFF1E1E1E) : Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -5))]),
@@ -384,7 +640,7 @@ class _CartViewState extends State<CartView> {
     return Scaffold(
       backgroundColor: themeBg,
       appBar: AppBar(title: Text(isAr ? 'سلة المشتريات' : 'My Cart', style: const TextStyle(color: Colors.white)), backgroundColor: Theme.of(context).primaryColor, iconTheme: const IconThemeData(color: Colors.white), centerTitle: true),
-      body: cartItems.isEmpty 
+      body: cartItems.isEmpty
           ? EmptyStateWidget(icon: Icons.shopping_basket_outlined, title: isAr ? 'سلتك فارغة' : 'Empty Cart', subtitle: isAr ? 'لم تقم بإضافة أي منتجات للسلة بعد' : 'Your cart is empty.')
           : Column(
               children: [

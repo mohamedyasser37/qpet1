@@ -221,6 +221,10 @@ class _AddAnimalViewState extends State<AddAnimalView> {
   Future<void> _generateQrOnlyPdf(bool isAr) async {
     final pdf = pw.Document();
     final fontBold = await PdfGoogleFonts.amiriBold();
+    
+    // تحميل صورة اللوجو مرة واحدة قبل البدء
+    final logoData = (await rootBundle.load('assets/final_logo.jpeg')).buffer.asUint8List();
+    final logoImage = pw.MemoryImage(logoData);
 
     for (var pet in _newlyCreatedPets) {
       pdf.addPage(
@@ -228,7 +232,7 @@ class _AddAnimalViewState extends State<AddAnimalView> {
           pageFormat: PdfPageFormat.a4,
           build: (context) => pw.Center(
             child: pw.Container(
-              padding: const pw.EdgeInsets.all(12), // تصغير حواف الإطار
+              padding: const pw.EdgeInsets.all(12),
               decoration: pw.BoxDecoration(
                 border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
@@ -236,13 +240,28 @@ class _AddAnimalViewState extends State<AddAnimalView> {
               child: pw.Column(
                 mainAxisSize: pw.MainAxisSize.min,
                 children: [
-                  pw.Text('QPet ID: ${pet['id']}', style: pw.TextStyle(fontSize: 14, font: fontBold)), // تصغير الخط قليلاً
-                  pw.SizedBox(height: 4), // تقليل المسافة لـ 4 كما طلبت
-                  pw.BarcodeWidget(
-                    data: pet['url'],
-                    barcode: pw.Barcode.qrCode(),
-                    width: 200, // تصغير الرمز ليتناسب مع الإطار الصغير
-                    height: 200,
+                  pw.Text('QPet ID: ${pet['id']}', style: pw.TextStyle(fontSize: 14, font: fontBold)), 
+                  pw.SizedBox(height: 4), 
+                  pw.Stack(
+                    alignment: pw.Alignment.center,
+                    children: [
+                      pw.BarcodeWidget(
+                        data: pet['url'],
+                        barcode: pw.Barcode.qrCode(),
+                        width: 200, 
+                        height: 200,
+                      ),
+                      pw.Container(
+                        width: 40, height: 40,
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColors.white,
+                          shape: pw.BoxShape.circle,
+                        ),
+                        child: pw.Center(
+                          child: pw.Image(logoImage, width: 30),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
