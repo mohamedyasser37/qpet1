@@ -38,10 +38,27 @@ class _AddProductViewState extends State<AddProductView> {
     _nameController = TextEditingController(text: widget.product?.name ?? '');
     _descController = TextEditingController(text: widget.product?.description ?? '');
     _priceController = TextEditingController(text: widget.product?.price.toString() ?? '');
-    _shippingPriceController = TextEditingController(text: widget.product?.shippingPrice.toString() ?? '0');
+    _shippingPriceController = TextEditingController(text: '0');
     _categoryController = TextEditingController(text: widget.product?.category ?? '');
     selectedColors = widget.product?.colors != null ? List<String>.from(widget.product!.colors) : [];
     _existingUrls = widget.product?.imageUrls != null ? List<String>.from(widget.product!.imageUrls) : (widget.product?.imageUrl != null ? [widget.product!.imageUrl] : []);
+    
+    if (widget.product == null) {
+      _fetchDefaultShipping();
+    } else {
+      _shippingPriceController.text = widget.product!.shippingPrice.toString();
+    }
+  }
+
+  Future<void> _fetchDefaultShipping() async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('config').doc('contact_info').get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _shippingPriceController.text = (doc.data()?['defaultShippingPrice'] ?? 0).toString();
+        });
+      }
+    } catch (e) {}
   }
 
   Future<void> _pickImages() async {
@@ -119,7 +136,13 @@ class _AddProductViewState extends State<AddProductView> {
               const SizedBox(height: 25),
               _buildField(_descController, isAr ? 'الوصف' : 'Description', Icons.description_outlined, isDark, primaryColor, gold, isAr, maxLines: 3),
               const SizedBox(height: 16),
-              Row(children: [Expanded(child: _buildField(_priceController, isAr ? 'السعر' : 'Price', Icons.attach_money_outlined, isDark, primaryColor, gold, isAr, keyboardType: TextInputType.number)), const SizedBox(width: 12), Expanded(child: _buildField(_shippingPriceController, isAr ? 'سعر الشحن' : 'Shipping', Icons.local_shipping_outlined, isDark, primaryColor, gold, isAr, keyboardType: TextInputType.number))]),
+              Row(
+                children: [
+                  Expanded(child: _buildField(_priceController, isAr ? 'السعر' : 'Price', Icons.attach_money_outlined, isDark, primaryColor, gold, isAr, keyboardType: TextInputType.number)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildField(_shippingPriceController, isAr ? 'سعر الشحن (ثابت)' : 'Shipping (Fixed)', Icons.local_shipping_outlined, isDark, primaryColor, gold, isAr, readOnly: true)),
+                ],
+              ),
               const SizedBox(height: 40),
               ElevatedButton(onPressed: isSaving ? null : _save, style: ElevatedButton.styleFrom(backgroundColor: isDark ? gold : primaryColor, foregroundColor: isDark ? Colors.black87 : Colors.white, minimumSize: const Size(double.infinity, 55), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), child: isSaving ? const CircularProgressIndicator(color: Colors.white) : Text(isAr ? 'حفظ المنتج' : 'Save Product', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
               const SizedBox(height: 40),
@@ -139,8 +162,25 @@ class _AddProductViewState extends State<AddProductView> {
     );
   }
 
-  Widget _buildField(TextEditingController controller, String label, IconData icon, bool isDark, Color p, Color g, bool isAr, {int maxLines = 1, TextInputType? keyboardType}) {
-    return TextFormField(controller: controller, maxLines: maxLines, keyboardType: keyboardType, style: TextStyle(color: isDark ? Colors.white : Colors.black87), decoration: InputDecoration(labelText: label, labelStyle: const TextStyle(color: Colors.grey), prefixIcon: Icon(icon, color: isDark ? g : p), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: isDark ? g : p, width: 1.5)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), fillColor: isDark ? Colors.white.withOpacity(0.02) : Colors.transparent, filled: true), validator: (val) => (val == null || val.isEmpty) ? (isAr ? 'مطلوب' : 'Required') : null);
+  Widget _buildField(TextEditingController controller, String label, IconData icon, bool isDark, Color p, Color g, bool isAr, {int maxLines = 1, TextInputType? keyboardType, bool readOnly = false}) {
+    return TextFormField(
+      controller: controller, 
+      maxLines: maxLines, 
+      keyboardType: keyboardType, 
+      readOnly: readOnly,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87), 
+      decoration: InputDecoration(
+        labelText: label, 
+        labelStyle: const TextStyle(color: Colors.grey), 
+        prefixIcon: Icon(icon, color: isDark ? g : p), 
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)), 
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: isDark ? g : p, width: 1.5)), 
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)), 
+        fillColor: readOnly ? (isDark ? Colors.black26 : Colors.grey.shade100) : (isDark ? Colors.white.withOpacity(0.02) : Colors.transparent), 
+        filled: true
+      ), 
+      validator: (val) => (val == null || val.isEmpty) ? (isAr ? 'مطلوب' : 'Required') : null
+    );
   }
 
   Future<void> _save() async {
@@ -148,11 +188,20 @@ class _AddProductViewState extends State<AddProductView> {
     setState(() => isSaving = true);
     try {
       final allUrls = await _uploadAllImages();
+      
+      // جلب سعر الشحن الموحد الحالي لضمان الدقة عند الحفظ
+      int currentShipping = 0;
+      final configDoc = await FirebaseFirestore.instance.collection('config').doc('contact_info').get();
+      if (configDoc.exists) {
+        currentShipping = (configDoc.data()?['defaultShippingPrice'] ?? 0).toInt();
+      }
+
       final data = {
         'name': _nameController.text.trim(), 'description': _descController.text.trim(), 
-        'price': double.parse(_priceController.text.trim()), 'shippingPrice': double.parse(_shippingPriceController.text.trim()),
-        'imageUrl': allUrls.first, // الصورة الأساسية (للخلفية)
-        'imageUrls': allUrls, // كافة الصور (للسلايدر)
+        'price': double.parse(_priceController.text.trim()), 
+        'shippingPrice': currentShipping,
+        'imageUrl': allUrls.first, 
+        'imageUrls': allUrls,
         'category': _categoryController.text.trim(), 'colors': selectedColors, 'updatedAt': FieldValue.serverTimestamp()
       };
       if (widget.product == null) { data['createdAt'] = FieldValue.serverTimestamp(); await FirebaseFirestore.instance.collection('products').add(data); }

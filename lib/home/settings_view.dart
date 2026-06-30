@@ -70,13 +70,53 @@ class _SettingsViewState extends State<SettingsView> {
           if (contactDoc.exists) {
             clinicContact = contactDoc.data() as Map<String, dynamic>?;
           }
-          _isLoading = false; // انتهاء التحميل
+          _isLoading = false; 
         });
       }
     } catch (e) {
       debugPrint("Error initializing settings: $e");
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showShippingPriceDialog(bool isAr, bool isDark) {
+    final shippingController = TextEditingController(text: clinicContact?['defaultShippingPrice']?.toString() ?? '0');
+    Color gold = const Color(0xFFC5A059);
+    Color primaryColor = Theme.of(context).primaryColor;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        title: Text(
+          isAr ? 'تعديل سعر الشحن' : 'Edit Shipping Price', 
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)
+        ),
+        content: _buildContactField(shippingController, isAr ? 'سعر الشحن ' : 'Shipping Price', Icons.local_shipping, isDark, gold, primaryColor, Colors.orange, keyboardType: TextInputType.number),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: Text(isAr ? 'إلغاء' : 'Cancel', style: const TextStyle(color: Colors.grey))
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance.collection('config').doc('contact_info').update({
+                'defaultShippingPrice': int.tryParse(shippingController.text) ?? 0,
+              });
+              _initializeData();
+              if (mounted) Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? gold : primaryColor,
+              foregroundColor: isDark ? Colors.black87 : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+            ),
+            child: Text(isAr ? 'حفظ' : 'Save', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _fetchClinicContact() async {
@@ -202,9 +242,10 @@ class _SettingsViewState extends State<SettingsView> {
           ],
 
           if (userRole == 'doctor') ...[
-            _buildSectionHeader(isAr ? 'إدارة العيادة' : 'Clinic Management', textColor),
+            _buildSectionHeader(isAr ? 'إدارة العيادة والمتجر' : 'Clinic & Shop Management', textColor),
             _buildSettingsGroup([
               _settingsItem(isAr ? 'تعديل معلومات التواصل' : 'Edit Contact Info', Icons.edit_note, primaryColor, () => _showEditContactDialog(isAr, isDark), isDark),
+              _settingsItem(isAr ? 'سعر الشحن الموحد' : 'Global Shipping Price', Icons.local_shipping_outlined, primaryColor, () => _showShippingPriceDialog(isAr, isDark), isDark),
             ], isDark),
             const SizedBox(height: 25),
           ],
@@ -479,9 +520,10 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  Widget _buildContactField(TextEditingController controller, String label, IconData icon, bool isDark, Color gold, Color primary, Color iconColor) {
+  Widget _buildContactField(TextEditingController controller, String label, IconData icon, bool isDark, Color gold, Color primary, Color iconColor, {TextInputType? keyboardType}) {
     return TextField(
       controller: controller,
+      keyboardType: keyboardType,
       style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       decoration: InputDecoration(
         labelText: label,

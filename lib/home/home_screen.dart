@@ -611,8 +611,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         data: downloadUrl, 
                         size: 200, 
                         errorCorrectionLevel: QrErrorCorrectLevel.H,
-                        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.teal),
-                        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.teal),
+                        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
+                        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
                       ),
                       Container(
                         width: 44, height: 44,
@@ -677,8 +677,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             data: url, 
                             version: QrVersions.auto, 
                             errorCorrectionLevel: QrErrorCorrectLevel.H,
-                            eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: primaryColor),
-                            dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: primaryColor),
+                            eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
+                            dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
                           ),
                           Container(
                             width: 44, height: 44,

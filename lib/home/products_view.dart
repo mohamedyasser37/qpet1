@@ -51,9 +51,9 @@ class Product {
   final String name;
   final String description;
   final double price;
-  final double shippingPrice;
+  final int shippingPrice; // تم التغيير لـ int
   final String imageUrl;
-  final List<String> imageUrls; // دعم تعدد الصور
+  final List<String> imageUrls; 
   final String category;
   final List<String> colors;
 
@@ -76,7 +76,8 @@ class Product {
 
   factory Product.fromMap(Map<String, dynamic> data) => Product(
     id: data['id'], name: data['name'], description: data['description'],
-    price: data['price'].toDouble(), shippingPrice: data['shippingPrice'].toDouble(),
+    price: data['price'].toDouble(), 
+    shippingPrice: (data['shippingPrice'] ?? 0).toInt(), // تم التغيير لـ int
     imageUrl: data['imageUrl'], imageUrls: List<String>.from(data['imageUrls'] ?? []),
     category: data['category'],
     colors: List<String>.from(data['colors'] ?? []),
@@ -89,7 +90,7 @@ class Product {
       name: data['name'] ?? '',
       description: data['description'] ?? '',
       price: (data['price'] ?? 0).toDouble(),
-      shippingPrice: (data['shippingPrice'] ?? 0).toDouble(),
+      shippingPrice: (data['shippingPrice'] ?? 0).toInt(), // تم التغيير لـ int
       imageUrl: data['imageUrl'] ?? '',
       imageUrls: List<String>.from(data['imageUrls'] ?? []),
       category: data['category'] ?? 'عام',
@@ -698,10 +699,20 @@ class _CheckoutViewState extends State<CheckoutView> {
   @override
   void initState() {
     super.initState();
-    double maxShipping = 0;
-    for (var item in cartItems) { if (item.product.shippingPrice > maxShipping) maxShipping = item.product.shippingPrice; }
-    _shippingController = TextEditingController(text: maxShipping.toStringAsFixed(0));
+    _shippingController = TextEditingController(text: '0');
     _fetchUserPhone();
+    _fetchGlobalShipping();
+  }
+
+  Future<void> _fetchGlobalShipping() async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('config').doc('contact_info').get();
+      if (doc.exists && mounted) {
+        setState(() {
+          _shippingController.text = (doc.data()?['defaultShippingPrice'] ?? 0).toInt().toString();
+        });
+      }
+    } catch (e) {}
   }
 
   Future<void> _fetchUserPhone() async {

@@ -16,7 +16,6 @@ class ProfileEditView extends StatefulWidget {
 class _ProfileEditViewState extends State<ProfileEditView> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _phoneController; // حقل رقم الموبايل
   late TextEditingController _fbController;
   late TextEditingController _igController; // حقل انستجرام
   late TextEditingController _tgController;
@@ -27,46 +26,15 @@ class _ProfileEditViewState extends State<ProfileEditView> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.userData['name'] ?? '');
-    _phoneController = TextEditingController(text: widget.userData['phone'] ?? '');
     _fbController = TextEditingController(text: widget.userData['facebook'] ?? '');
     _igController = TextEditingController(text: widget.userData['instagram'] ?? ''); // كود جديد
     _tgController = TextEditingController(text: widget.userData['telegram'] ?? '');
     _waController = TextEditingController(text: widget.userData['whatsapp'] ?? '');
-
-    // إذا كان رقم الهاتف فارغاً في البروفايل، نحاول جلبه من أحد الحيوانات المرتبطة
-    if (_phoneController.text.isEmpty) {
-      _fetchPhoneFromPets();
-    }
-  }
-
-  Future<void> _fetchPhoneFromPets() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    try {
-      final petsSnapshot = await FirebaseFirestore.instance
-          .collection('pets')
-          .where('ownerUid', isEqualTo: user.uid)
-          .limit(1)
-          .get();
-
-      if (petsSnapshot.docs.isNotEmpty && mounted) {
-        final petPhone = petsSnapshot.docs.first.data()['ownerPhone'];
-        if (petPhone != null && petPhone.toString().isNotEmpty) {
-          setState(() {
-            _phoneController.text = petPhone.toString();
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("Error fetching phone from pets: $e");
-    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _phoneController.dispose();
     _fbController.dispose();
     _igController.dispose(); // كود جديد
     _tgController.dispose();
@@ -82,34 +50,15 @@ class _ProfileEditViewState extends State<ProfileEditView> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         final newName = _nameController.text.trim();
-        final newPhone = _phoneController.text.trim();
 
         // 1. تحديث بيانات المستخدم الأساسية
         await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
           'name': newName,
-          'phone': newPhone,
           'facebook': _fbController.text.trim(),
           'instagram': _igController.text.trim(), // كود جديد
           'telegram': _tgController.text.trim(),
           'whatsapp': _waController.text.trim(),
         });
-
-        // 2. مزامنة البيانات مع كافة الحيوانات المرتبطة بهذا المستخدم
-        final petsSnapshot = await FirebaseFirestore.instance
-            .collection('pets')
-            .where('ownerUid', isEqualTo: user.uid)
-            .get();
-
-        if (petsSnapshot.docs.isNotEmpty) {
-          final batch = FirebaseFirestore.instance.batch();
-          for (var doc in petsSnapshot.docs) {
-            batch.update(doc.reference, {
-              'ownerPhone': newPhone,
-              'ownerName': newName, // مزامنة الاسم أيضاً لضمان الدقة
-            });
-          }
-          await batch.commit();
-        }
 
         if (mounted) {
           Navigator.pop(context, true);
@@ -149,8 +98,6 @@ class _ProfileEditViewState extends State<ProfileEditView> {
             children: [
               _buildSectionTitle(isAr ? 'المعلومات الأساسية' : 'Basic Info', Icons.person_outline, isDark ? gold : primaryColor),
               _buildField(_nameController, isAr ? 'الاسم بالكامل' : 'Full Name', Icons.person, isDark, primaryColor, gold),
-              const SizedBox(height: 16),
-              _buildField(_phoneController, isAr ? 'رقم الموبايل' : 'Mobile Number', Icons.phone_android, isDark, primaryColor, gold, keyboardType: TextInputType.phone),
               const SizedBox(height: 32),
               
               _buildSectionTitle(isAr ? 'وسائل التواصل الاجتماعي' : 'Social Media', Icons.share_outlined, isDark ? gold : primaryColor),
