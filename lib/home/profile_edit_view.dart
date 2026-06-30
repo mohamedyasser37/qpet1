@@ -157,7 +157,7 @@ class _ProfileEditViewState extends State<ProfileEditView> {
               
               _buildSocialField(_fbController, 'Facebook', 'https://facebook.com/yourprofile', Icons.facebook, Colors.blue, isDark, gold),
               const SizedBox(height: 16),
-              _buildSocialField(_igController, 'Instagram', 'https://instagram.com/username', Icons.camera_alt_outlined, Colors.purple, isDark, gold), // كود جديد
+              _buildSocialField(_igController, 'Instagram', 'https://instagram.com/username', null, Colors.purple, isDark, gold, imagePath: 'assets/insta.png'), // استخدام الصورة الجديدة
               const SizedBox(height: 16),
               _buildSocialField(_tgController, 'Telegram', 'https://t.me/username', Icons.telegram, Colors.lightBlue, isDark, gold),
               const SizedBox(height: 16),
@@ -212,7 +212,7 @@ class _ProfileEditViewState extends State<ProfileEditView> {
     );
   }
 
-  Widget _buildSocialField(TextEditingController controller, String label, String hint, IconData? icon, Color iconColor, bool isDark, Color gold, {bool isWhatsApp = false}) {
+  Widget _buildSocialField(TextEditingController controller, String label, String hint, IconData? icon, Color iconColor, bool isDark, Color gold, {bool isWhatsApp = false, String? imagePath}) {
     return TextFormField(
       controller: controller,
       style: TextStyle(color: isDark ? Colors.white : Colors.black87),
@@ -225,7 +225,9 @@ class _ProfileEditViewState extends State<ProfileEditView> {
           padding: const EdgeInsets.all(12.0),
           child: isWhatsApp 
             ? SvgPicture.asset('assets/WhatsApp.svg', width: 22, height: 22)
-            : Icon(icon, color: isDark ? gold.withOpacity(0.8) : iconColor),
+            : (imagePath != null 
+                ? Image.asset(imagePath, width: 22, height: 22)
+                : Icon(icon, color: isDark ? gold.withOpacity(0.8) : iconColor)),
         ),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.grey.shade300)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: isDark ? gold : iconColor, width: 1.5)),

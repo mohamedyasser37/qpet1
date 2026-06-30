@@ -349,13 +349,15 @@ class _SettingsViewState extends State<SettingsView> {
                   Icon(Icons.edit_outlined, color: Colors.grey.shade400),
                 ],
               ),
-              if (userData != null && (userData?['facebook'] != null || userData?['telegram'] != null || userData?['whatsapp'] != null)) ...[
+              if (userData != null && (userData?['facebook'] != null || userData?['instagram'] != null || userData?['telegram'] != null || userData?['whatsapp'] != null)) ...[
                 const Divider(height: 30),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (userData?['facebook'] != null && userData!['facebook'].toString().isNotEmpty)
                       _socialIcon(Icons.facebook, Colors.blue, () => _launchSocial('facebook', userData!['facebook'])),
+                    if (userData?['instagram'] != null && userData!['instagram'].toString().isNotEmpty)
+                      _socialIcon(null, Colors.purple, () => _launchSocial('instagram', userData!['instagram']), imagePath: 'assets/insta.png'),
                     if (userData?['telegram'] != null && userData!['telegram'].toString().isNotEmpty)
                       _socialIcon(Icons.telegram, Colors.lightBlue, () => _launchSocial('telegram', userData!['telegram'])),
                     if (userData?['whatsapp'] != null && userData!['whatsapp'].toString().isNotEmpty)
@@ -370,13 +372,15 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  Widget _socialIcon(IconData? icon, Color color, VoidCallback onTap, {bool isWhatsApp = false}) {
+  Widget _socialIcon(IconData? icon, Color color, VoidCallback onTap, {bool isWhatsApp = false, String? imagePath}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       child: IconButton(
         icon: isWhatsApp 
           ? SvgPicture.asset('assets/WhatsApp.svg', width: 28, height: 28)
-          : Icon(icon, color: color, size: 28),
+          : (imagePath != null 
+              ? Image.asset(imagePath, width: 28, height: 28)
+              : Icon(icon, color: color, size: 28)),
         onPressed: onTap,
       ),
     );

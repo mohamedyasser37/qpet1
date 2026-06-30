@@ -183,8 +183,10 @@ class _AdminReportsViewState extends State<AdminReportsView> with SingleTickerPr
                           data: url, 
                           version: QrVersions.auto, 
                           embeddedImage: const AssetImage('assets/final_logo-Photoroom.png'),
-                          embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(35, 35)),
-                          eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.circle, color: primaryColor)
+                          embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(45, 45)),
+                          errorCorrectionLevel: QrErrorCorrectLevel.H,
+                          eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: primaryColor),
+                          dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: primaryColor),
                         )
                       ),
                       const SizedBox(height: 10),

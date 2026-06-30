@@ -250,7 +250,7 @@ class PublicPetProfilePage extends StatelessWidget {
                                     children: [
                                       if (hasFacebook) _socialIcon(Icons.facebook, userData['facebook'], Colors.blue),
                                       if (hasFacebook && (hasInstagram || hasTelegram || hasWhatsapp)) const SizedBox(width: 15),
-                                      if (hasInstagram) _socialIcon(Icons.camera_alt_outlined, userData['instagram'], Colors.purple),
+                                      if (hasInstagram) _socialIcon(null, userData['instagram'], Colors.purple, imagePath: 'assets/insta.png'),
                                       if (hasInstagram && (hasTelegram || hasWhatsapp)) const SizedBox(width: 15),
                                       if (hasTelegram) _socialIcon(Icons.telegram, userData['telegram'], Colors.lightBlue),
                                       if (hasTelegram && hasWhatsapp) const SizedBox(width: 15),
@@ -364,7 +364,7 @@ class PublicPetProfilePage extends StatelessWidget {
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(l, style: const TextStyle(color: Colors.grey)), Text(v ?? '--', style: const TextStyle(fontWeight: FontWeight.bold))])
   );
 
-  Widget _socialIcon(IconData? icon, String url, Color color, {bool isWhatsApp = false}) {
+  Widget _socialIcon(IconData? icon, String url, Color color, {bool isWhatsApp = false, String? imagePath}) {
     String finalUrl = url;
     if (isWhatsApp) {
       String phone = url.split('wa.me/').last;
@@ -383,7 +383,9 @@ class PublicPetProfilePage extends StatelessWidget {
         backgroundColor: color.withOpacity(0.1), 
         child: isWhatsApp 
           ? SvgPicture.asset('assets/WhatsApp.svg', width: 24, height: 24)
-          : Icon(icon, color: color, size: 24)
+          : (imagePath != null 
+              ? Image.asset(imagePath, width: 24, height: 24)
+              : Icon(icon, color: color, size: 24))
       ),
     );
   }
