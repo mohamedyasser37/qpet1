@@ -498,11 +498,38 @@ class _AdminReportsViewState extends State<AdminReportsView> with SingleTickerPr
     showDialog(context: context, builder: (c) => AlertDialog(
       backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-      title: Row(children: [const Icon(Icons.person_remove, color: Colors.red), const SizedBox(width: 10), Text(isAr ? 'حذف حساب' : 'Delete Account', style: TextStyle(color: isDark ? Colors.white : Colors.black87))]),
-      content: Text(isAr ? 'هل أنت متأكد من حذف حساب "${data['name'] ?? data['email']}"؟' : 'Delete account for "${data['name'] ?? data['email']}"?', style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black54)),
+      title: Row(children: [const Icon(Icons.person_remove, color: Colors.red), const SizedBox(width: 10), Text(isAr ? 'حذف حساب نهائياً' : 'Permanent Delete', style: TextStyle(color: isDark ? Colors.white : Colors.black87))]),
+      content: Text(
+        isAr 
+          ? 'هل أنت متأكد من حذف حساب "${data['name'] ?? data['email']}"؟ سيتم مسح بياناته من النظام فوراً.' 
+          : 'Are you sure you want to delete "${data['name'] ?? data['email']}"? Their data will be removed from the system.', 
+        style: TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.black54)
+      ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c), child: Text(isAr ? 'إلغاء' : 'Cancel', style: const TextStyle(color: Colors.grey))),
-        ElevatedButton(onPressed: () async { await FirebaseFirestore.instance.collection('users').doc(userId).delete(); if (mounted) { Navigator.pop(c); _fetchUsers(reset: true); } }, style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white), child: Text(isAr ? 'تأكيد الحذف' : 'Confirm Delete')),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              // 1. حذف وثيقة المستخدم من Firestore
+              await FirebaseFirestore.instance.collection('users').doc(userId).delete();
+              
+              // 2. إذا كان لديك إعداد Cloud Functions، سيتم حذف الـ Auth تلقائياً 
+              // بناءً على حذف الوثيقة (OnDelete Trigger)
+              
+              if (mounted) {
+                Navigator.pop(c);
+                _fetchUsers(reset: true);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(isAr ? 'تم حذف الحساب بنجاح' : 'User deleted successfully'), backgroundColor: Colors.red)
+                );
+              }
+            } catch (e) {
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+            }
+          }, 
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white), 
+          child: Text(isAr ? 'تأكيد الحذف' : 'Confirm Delete')
+        ),
       ],
     ));
   }

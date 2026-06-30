@@ -56,14 +56,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Image.asset(
-                'assets/final_logo.jpeg',
+                'assets/final_logo-Photoroom.png',
                 width: 250,
                 fit: BoxFit.contain,
               ),
               const SizedBox(height: 50),
-              // const CircularProgressIndicator(
-              //   valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF004040)),
-              // ),
             ],
           ),
         ),

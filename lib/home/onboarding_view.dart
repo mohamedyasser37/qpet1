@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vet/home/login_view.dart';
 import 'package:vet/main.dart';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vet/home/home_screen.dart';
 
@@ -56,13 +55,20 @@ class _OnboardingViewState extends State<OnboardingView> {
   @override
   Widget build(BuildContext context) {
     bool isAr = MyApp.of(context).locale.languageCode == 'ar';
-    Color primaryColor = Theme.of(context).primaryColor;
+    const Color primaryGreen = Color(0xFF004040);
+    const Color royalGold = Color(0xFFC5A059);
+    const Color customGoldBg = Color(0xFFFAF3ED);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: customGoldBg,
       body: SafeArea(
         child: Column(
           children: [
+            // اللوجو في الأعلى
+            Padding(
+              padding: const EdgeInsets.only(top: 20),
+              child: Image.asset('assets/final_logo-Photoroom.png', height: 80),
+            ),
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -73,30 +79,38 @@ class _OnboardingViewState extends State<OnboardingView> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 60),
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Image.asset(_items[index].image, height: 300),
+                        const SizedBox(height: 30),
+                        Container(
+                          height: 320,
+                          padding: const EdgeInsets.all(20),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(30),
+                            child: Image.asset(_items[index].image, fit: BoxFit.cover),
+                          ),
                         ),
                         const SizedBox(height: 20),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Text(
                             isAr ? _items[index].titleAr : _items[index].titleEn,
-                            style: TextStyle(
-                              fontSize: 24,
+                            style: const TextStyle(
+                              fontSize: 28,
                               fontWeight: FontWeight.bold,
-                              color: primaryColor,
+                              color: primaryGreen,
                             ),
                             textAlign: TextAlign.center,
                           ),
                         ),
                         const SizedBox(height: 15),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 40),
+                          padding: const EdgeInsets.symmetric(horizontal: 45),
                           child: Text(
                             isAr ? _items[index].descAr : _items[index].descEn,
-                            style: const TextStyle(fontSize: 16, color: Colors.grey),
+                            style: TextStyle(
+                              fontSize: 16, 
+                              color: primaryGreen.withOpacity(0.7),
+                              height: 1.5
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -108,28 +122,30 @@ class _OnboardingViewState extends State<OnboardingView> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       _items.length,
-                      (index) => Container(
+                      (index) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         width: _currentPage == index ? 24 : 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: _currentPage == index ? primaryColor : Colors.grey.shade300,
+                          color: _currentPage == index ? royalGold : primaryGreen.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 40),
-                  SizedBox(
+                  Container(
                     width: double.infinity,
-                    height: 55,
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    height: 60,
                     child: ElevatedButton(
                       onPressed: () {
                         if (_currentPage == _items.length - 1) {
@@ -142,9 +158,11 @@ class _OnboardingViewState extends State<OnboardingView> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        backgroundColor: royalGold,
+                        foregroundColor: Colors.black87,
+                        elevation: 4,
+                        shadowColor: royalGold.withOpacity(0.3),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                       ),
                       child: Text(
                         _currentPage == _items.length - 1
@@ -154,11 +172,12 @@ class _OnboardingViewState extends State<OnboardingView> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
                   TextButton(
                     onPressed: _finishOnboarding,
                     child: Text(
                       isAr ? 'تخطي' : 'Skip',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: primaryGreen.withOpacity(0.6), fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],

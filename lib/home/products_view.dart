@@ -242,7 +242,7 @@ class _ProductsViewState extends State<ProductsView> {
                   const SizedBox(height: 5),
                   Text('${product.price} ${isAr ? 'ج.م' : 'EGP'}', style: TextStyle(color: isDark ? goldColor : primaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 10),
-                  if (userRole == 'owner')
+                  if (userRole != 'doctor')
                     ElevatedButton(
                       onPressed: () {
                         setState(() {
@@ -593,7 +593,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
           ),
         ],
       ),
-      bottomSheet: _userRole == 'owner'
+      bottomSheet: _userRole != 'doctor'
         ? Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: isDark ? const Color(0xFF1E1E1E) : Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -5))]),

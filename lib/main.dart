@@ -248,10 +248,11 @@ class PublicPetProfilePage extends StatelessWidget {
                                 final userData = userSnapshot.data!.data() as Map<String, dynamic>;
                                 
                                 bool hasFacebook = userData['facebook'] != null && userData['facebook'].toString().isNotEmpty;
+                                bool hasInstagram = userData['instagram'] != null && userData['instagram'].toString().isNotEmpty;
                                 bool hasTelegram = userData['telegram'] != null && userData['telegram'].toString().isNotEmpty;
                                 bool hasWhatsapp = userData['whatsapp'] != null && userData['whatsapp'].toString().isNotEmpty;
 
-                                if (!hasFacebook && !hasTelegram && !hasWhatsapp) return const SizedBox.shrink();
+                                if (!hasFacebook && !hasInstagram && !hasTelegram && !hasWhatsapp) return const SizedBox.shrink();
 
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -259,7 +260,9 @@ class PublicPetProfilePage extends StatelessWidget {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       if (hasFacebook) _socialIcon(Icons.facebook, userData['facebook'], Colors.blue),
-                                      if (hasFacebook && (hasTelegram || hasWhatsapp)) const SizedBox(width: 15),
+                                      if (hasFacebook && (hasInstagram || hasTelegram || hasWhatsapp)) const SizedBox(width: 15),
+                                      if (hasInstagram) _socialIcon(Icons.camera_alt_outlined, userData['instagram'], Colors.purple),
+                                      if (hasInstagram && (hasTelegram || hasWhatsapp)) const SizedBox(width: 15),
                                       if (hasTelegram) _socialIcon(Icons.telegram, userData['telegram'], Colors.lightBlue),
                                       if (hasTelegram && hasWhatsapp) const SizedBox(width: 15),
                                       if (hasWhatsapp) _socialIcon(null, 'https://wa.me/${userData['whatsapp']}', Colors.green, isWhatsApp: true),

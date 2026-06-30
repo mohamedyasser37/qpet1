@@ -18,6 +18,7 @@ class _ProfileEditViewState extends State<ProfileEditView> {
   late TextEditingController _nameController;
   late TextEditingController _phoneController; // حقل رقم الموبايل
   late TextEditingController _fbController;
+  late TextEditingController _igController; // حقل انستجرام
   late TextEditingController _tgController;
   late TextEditingController _waController;
   bool isSaving = false;
@@ -28,6 +29,7 @@ class _ProfileEditViewState extends State<ProfileEditView> {
     _nameController = TextEditingController(text: widget.userData['name'] ?? '');
     _phoneController = TextEditingController(text: widget.userData['phone'] ?? '');
     _fbController = TextEditingController(text: widget.userData['facebook'] ?? '');
+    _igController = TextEditingController(text: widget.userData['instagram'] ?? ''); // كود جديد
     _tgController = TextEditingController(text: widget.userData['telegram'] ?? '');
     _waController = TextEditingController(text: widget.userData['whatsapp'] ?? '');
 
@@ -66,6 +68,7 @@ class _ProfileEditViewState extends State<ProfileEditView> {
     _nameController.dispose();
     _phoneController.dispose();
     _fbController.dispose();
+    _igController.dispose(); // كود جديد
     _tgController.dispose();
     _waController.dispose();
     super.dispose();
@@ -86,6 +89,7 @@ class _ProfileEditViewState extends State<ProfileEditView> {
           'name': newName,
           'phone': newPhone,
           'facebook': _fbController.text.trim(),
+          'instagram': _igController.text.trim(), // كود جديد
           'telegram': _tgController.text.trim(),
           'whatsapp': _waController.text.trim(),
         });
@@ -152,6 +156,8 @@ class _ProfileEditViewState extends State<ProfileEditView> {
               _buildSectionTitle(isAr ? 'وسائل التواصل الاجتماعي' : 'Social Media', Icons.share_outlined, isDark ? gold : primaryColor),
               
               _buildSocialField(_fbController, 'Facebook', 'https://facebook.com/yourprofile', Icons.facebook, Colors.blue, isDark, gold),
+              const SizedBox(height: 16),
+              _buildSocialField(_igController, 'Instagram', 'https://instagram.com/username', Icons.camera_alt_outlined, Colors.purple, isDark, gold), // كود جديد
               const SizedBox(height: 16),
               _buildSocialField(_tgController, 'Telegram', 'https://t.me/username', Icons.telegram, Colors.lightBlue, isDark, gold),
               const SizedBox(height: 16),

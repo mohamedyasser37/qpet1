@@ -282,33 +282,34 @@ class _QrScannerViewState extends State<QrScannerView> with WidgetsBindingObserv
                   if (passController.text == data['editPassword']) {
                     Navigator.pop(dialogCtx); // غلق الديالوج أولاً
 
-                    if (forEdit) {
-                      Navigator.pop(sheetCtx, 'edit'); // العودة للماسح مع أمر التعديل
-                    } else {
-                      // منطق الإضافة لـ "أليفي"
-                      try {
-                        final user = FirebaseAuth.instance.currentUser;
-                        final userRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
-                        
-                        await userRef.update({
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user != null) {
+                      // جلب دور المستخدم للتأكد من ربط الحيوان بحسابه إذا كان "صاحب أليف"
+                      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+                      final role = userDoc.data()?['role'];
+
+                      if (role == 'owner') {
+                        // ربط الحيوان بالحساب تلقائياً عند التعديل الصحيح أو الإضافة
+                        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
                           'petIds': FieldValue.arrayUnion([petId])
                         });
-                        
                         await FirebaseFirestore.instance.collection('pets').doc(petId).update({
                           'ownerUid': user.uid
                         });
+                      }
+                    }
 
-                        if (mounted) {
-                          Navigator.pop(sheetCtx, 'added'); // العودة للماسح مع أمر النجاح
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(isAr ? 'تمت الإضافة إلى أليفي بنجاح!' : 'Added to My Pet successfully!'), 
-                              backgroundColor: Colors.green
-                            )
-                          );
-                        }
-                      } catch (e) {
-                        debugPrint("Error adding pet: $e");
+                    if (forEdit) {
+                      if (mounted) Navigator.pop(sheetCtx, 'edit'); 
+                    } else {
+                      if (mounted) {
+                        Navigator.pop(sheetCtx, 'added');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isAr ? 'تمت الإضافة إلى أليفي بنجاح!' : 'Added to My Pet successfully!'), 
+                            backgroundColor: Colors.green
+                          )
+                        );
                       }
                     }
                   } else {
