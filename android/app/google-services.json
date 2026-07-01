@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "786560188458",
-    "project_id": "vet-app-80a7a",
-    "storage_bucket": "vet-app-80a7a.firebasestorage.app"
+    "project_number": "582369930164",
+    "project_id": "qpet-edcb0",
+    "storage_bucket": "qpet-edcb0.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:786560188458:android:8a42b67281387ce1a2c353",
+        "mobilesdk_app_id": "1:582369930164:android:ca3170b6aca8d58a4fa0e1",
         "android_client_info": {
           "package_name": "com.example.vet"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyChzyR_GuXSJ9rAbd9A8y5W6W98OvfZ6y4"
+          "current_key": "AIzaSyCpgNEDxoMrYPtzSJPF_awFhGFlUZ_gb-Q"
         }
       ],
       "services": {

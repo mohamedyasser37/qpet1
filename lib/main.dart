@@ -22,11 +22,11 @@ void main() async {
   if (kIsWeb) {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
-        apiKey: "AIzaSyAqRR1J4HNTQ1oNMhpsn6y89Hi10O9P17w",
-        appId: "1:786560188458:web:9004e7227233baf5a2c353",
-        messagingSenderId: "786560188458",
-        projectId: "vet-app-80a7a",
-        storageBucket: "vet-app-80a7a.firebasestorage.app",
+        apiKey: "AIzaSyBfPupEnaEgFK7tYX6OswPXfYBjgRyiu3Y",
+        appId: "1:582369930164:web:8e1bf78f71120cdc4fa0e1",
+        messagingSenderId: "582369930164",
+        projectId: "qpet-edcb0",
+        storageBucket: "qpet-edcb0.firebasestorage.app",
       ),
     );
   } else {
