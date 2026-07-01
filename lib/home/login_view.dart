@@ -57,7 +57,62 @@ class _LoginViewState extends State<LoginView> {
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message ?? (isAr ? 'خطأ' : 'Error'))));
+        String message = isAr ? 'حدث خطأ غير متوقع' : 'An unexpected error occurred';
+        
+        switch (e.code) {
+          case 'user-not-found':
+          case 'wrong-password':
+          case 'invalid-credential':
+            message = isAr ? 'خطأ في البريد الإلكتروني أو كلمة المرور' : 'Invalid email or password.';
+            break;
+          case 'invalid-email':
+            message = isAr ? 'تنسيق البريد الإلكتروني غير صحيح' : 'Invalid email format.';
+            break;
+          case 'user-disabled':
+            message = isAr ? 'هذا الحساب تم تعطيله' : 'This account has been disabled.';
+            break;
+          case 'email-already-in-use':
+            message = isAr ? 'هذا البريد مستخدم بالفعل، قم بتسجيل الدخول' : 'Email already in use. Try logging in.';
+            break;
+          case 'weak-password':
+            message = isAr ? 'كلمة المرور ضعيفة جداً' : 'Password is too weak.';
+            break;
+          case 'channel-error':
+            message = isAr ? 'يرجى التأكد من ملء جميع الحقول' : 'Please make sure all fields are filled.';
+            break;
+          case 'too-many-requests':
+            message = isAr ? 'تم إرسال الكثير من الطلبات، حاول لاحقاً' : 'Too many requests. Try again later.';
+            break;
+        }
+
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade800,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            margin: const EdgeInsets.all(20),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isAr ? 'خطأ في الاتصال بالسيرفر' : 'Connection error'))
+        );
       }
     } finally {
       if (mounted) setState(() => isLoading = false);
