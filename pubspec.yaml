@@ -12,6 +12,9 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
   mobile_scanner: ^5.2.3
   flutter_animate: ^4.5.0
   lottie: ^3.1.2
@@ -20,16 +23,19 @@ dependencies:
   path_provider: ^2.1.4
   permission_handler: ^11.3.1
   shared_preferences: ^2.3.2
-  firebase_core: ^3.10.1
+
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
   cloud_firestore: ^5.6.3
-  firebase_auth: ^5.4.1
+
+  google_sign_in: ^6.3.0
+
   image_picker: ^1.1.2
   supabase: ^2.3.4
   cloudinary_public: ^0.23.1
   url_launcher: ^6.3.1
   pdf: ^3.11.1
   printing: ^5.13.2
-  cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.10+1
   connectivity_plus: ^6.1.1
 

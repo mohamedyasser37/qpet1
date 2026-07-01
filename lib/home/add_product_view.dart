@@ -30,7 +30,7 @@ class _AddProductViewState extends State<AddProductView> {
     'أسود': Colors.black, 'Black': Colors.black, 'أبيض': Colors.white, 'White': Colors.white, 'أحمر': Colors.red, 'Red': Colors.red, 'أزرق': Colors.blue, 'Blue': Colors.blue, 'أخضر': Colors.green, 'Green': Colors.green, 'أصفر': Colors.yellow, 'Yellow': Colors.yellow, 'بني': Colors.brown, 'Brown': Colors.brown, 'رمادي': Colors.grey, 'Grey': Colors.grey, 'وردي': Colors.pink, 'Pink': Colors.pink, 'بنفسجي': Colors.purple, 'Purple': Colors.purple, 'برتقالي': Colors.orange, 'Orange': Colors.orange,
   };
 
-  final cloudinary = CloudinaryPublic('dpgb9n7y1', 'qpet-app', cache: false);
+  final cloudinary = CloudinaryPublic('dt4tjargq', 'ml_default10', cache: false);
 
   @override
   void initState() {

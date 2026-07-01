@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:582369930164:android:ca3170b6aca8d58a4fa0e1",
+        "mobilesdk_app_id": "1:582369930164:android:20529bec06aac95e4fa0e1",
         "android_client_info": {
-          "package_name": "com.example.vet"
+          "package_name": "com.qpet.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "582369930164-5noked6uv2mkrus9334akofqho03urmq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCpgNEDxoMrYPtzSJPF_awFhGFlUZ_gb-Q"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "582369930164-5noked6uv2mkrus9334akofqho03urmq.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "582369930164-drmbg5reg675l57tld4hi7astgrkghpl.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.vet"
+              }
+            }
+          ]
         }
       }
     }

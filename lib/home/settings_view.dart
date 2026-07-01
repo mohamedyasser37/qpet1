@@ -36,7 +36,7 @@ class _SettingsViewState extends State<SettingsView> {
   bool isUploading = false;
 
   // إعدادات Cloudinary - يجب استبدال هذه القيم ببيانات حسابك
-  final cloudinary = CloudinaryPublic('dpgb9n7y1', 'qpet-app', cache: false);
+  final cloudinary = CloudinaryPublic('dt4tjargq', 'ml_default10', cache: false);
 
   @override
   void initState() {

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // إضافة الاستيراد المفقود
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:vet/home/qr_scanner_view.dart';
 import 'package:vet/home/home_screen.dart';
 import 'package:vet/main.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // إضافة الاستيراد المفقود لـ kIsWeb
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -112,6 +115,61 @@ class _LoginViewState extends State<LoginView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(isAr ? 'خطأ في الاتصال بالسيرفر' : 'Connection error'))
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle(bool isAr) async {
+    setState(() => isLoading = true);
+    try {
+      // استخدام الـ Web Client ID الموحد لضمان التوافق
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: kIsWeb ? '582369930164-5noked6uv2mkrus9334akofqho03urmq.apps.googleusercontent.com' : null,
+      );
+      
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      UserCredential userCredential = await _auth.signInWithCredential(credential);
+      User? user = userCredential.user;
+
+      if (user != null) {
+        // التحقق مما إذا كان المستخدم جديداً
+        DocumentSnapshot userDoc = await _firestore.collection('users').doc(user.uid).get();
+        if (!userDoc.exists) {
+          await _firestore.collection('users').doc(user.uid).set({
+            'name': user.displayName ?? user.email?.split('@').first ?? 'Guest',
+            'email': user.email,
+            'role': 'owner',
+            'createdAt': FieldValue.serverTimestamp(),
+            'petIds': []
+          });
+        }
+
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (c) => const HomeScreen()),
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isAr ? 'خطأ في تسجيل الدخول بجوجل' : 'Google Sign-In Error: $e'))
         );
       }
     } finally {
@@ -281,6 +339,25 @@ class _LoginViewState extends State<LoginView> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
                               ),
                               child: isLoading ? const CircularProgressIndicator(color: Colors.white) : Text(isLogin ? (isAr ? 'دخول' : 'Login') : (isAr ? 'تسجيل' : 'Register'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // زر جوجل
+                          SizedBox(
+                            width: double.infinity,
+                            height: 55,
+                            child: OutlinedButton.icon(
+                              onPressed: isLoading ? null : () => _signInWithGoogle(isAr),
+                              icon: SvgPicture.asset('assets/google_icon.svg', height: 24),
+                              label: Text(
+                                isAr ? 'دخول بواسطة جوجل' : 'Sign in with Google',
+                                style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade300),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),

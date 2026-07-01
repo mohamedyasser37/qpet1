@@ -6,20 +6,10 @@ allprojects {
 }
 
 rootProject.buildDir = "../build"
+
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
     project.evaluationDependsOn(":app")
-}
-
-// حل مشكلة إصدارات الأندرويد للمكتبات الخارجية بطريقة آمنة
-subprojects {
-    project.configurations.all {
-        resolutionStrategy.eachDependency { details ->
-            // يمكنك إضافة تعديلات هنا إذا لزم الأمر مستقبلاً
-        }
-    }
 }
 
 tasks.register("clean", Delete) {
